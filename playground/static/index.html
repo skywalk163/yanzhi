@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>言知 Playground</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- === Header === -->
+<div class="header">
+  <div class="logo">言知 <small>Yanzhi Playground</small></div>
+  <div class="nav">
+    <button onclick="toggleSidebar('examples')" data-nav="examples">📂 示例</button>
+    <button onclick="toggleSidebar('docs')" data-nav="docs">📖 语法参考</button>
+  </div>
+</div>
+
+<!-- === Main === -->
+<div class="main">
+  
+  <!-- Editor Panel -->
+  <div class="editor-panel">
+    <div class="editor-toolbar">
+      <button class="run" id="run-btn" onclick="runCode()">▶ 运行</button>
+      <button onclick="clearEditor(); clearOutput()">✕ 清空</button>
+      <span class="file-label" id="file-label">未命名</span>
+    </div>
+    <textarea id="editor" spellcheck="false" placeholder="在此输入言知代码…"></textarea>
+  </div>
+
+  <!-- Output Panel -->
+  <div class="output-panel">
+    <div class="output-header">
+      <span>输出</span>
+      <button onclick="clearOutput()">清空输出</button>
+    </div>
+    <div class="output-body" id="output-body">
+      <div class="output-placeholder">点击 ▶ 运行 或按 Ctrl+Enter 执行代码</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3 id="sidebar-title">📂 示例</h3>
+      <button class="close-btn" onclick="closeSidebar()">✕</button>
+    </div>
+    <div class="sidebar-tabs">
+      <button class="active" data-tab="examples" onclick="toggleSidebar('examples')">示例</button>
+      <button data-tab="docs" onclick="toggleSidebar('docs')">语法参考</button>
+    </div>
+    <div class="sidebar-body" id="sidebar-body">
+      <p style="color:var(--fg2)">加载中…</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- === Status Bar === -->
+<div class="status-bar">
+  <div class="status-indicator" id="status-dot"></div>
+  <span id="status-text">就绪</span>
+  <span style="margin-left:auto;opacity:.6">Ctrl+Enter 运行</span>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

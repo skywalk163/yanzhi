@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yanzhi"
+version = "0.1.0"
+description = "言知 - 根植于汉语思维结构的中文编程语言"
+requires-python = ">=3.10"
+dependencies = [
+    "antlr4-python3-runtime>=4.9.3",
+]
+
+[project.scripts]
+yanzhi = "yanzhi.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

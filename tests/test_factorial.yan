@@ -1,0 +1,1 @@
+定fact=函n：若n等1则1否则n乘fact $(n-1)。fact 5。

@@ -1,0 +1,33 @@
+# 言知 · 快速排序
+# 使用数学符号表达式 + 函数式管道
+
+"快速排序"，印。
+""，印。
+
+# 分割函数：把列表分成小于和大于等于 pivot 的两部分
+定 split = 函 lst pivot：
+  连 列(只(函 x：x < pivot)(lst))
+     列(只(函 x：x >= pivot)(lst))。
+。
+
+# 快速排序主函数
+定 qs = 函 lst：
+  若 空 lst 则 lst 否则
+    定 p = 首 lst。
+    定 rest = 余 lst。
+    定 parts = split rest p。
+    连 qs(首 parts)
+       连 列 p
+         qs(首(余 parts))。
+。
+
+"测试排序"，印。
+定 data = 列 3 1 4 1 5 9 2 6 5 3。
+印 "输入："，印 data。
+印 "输出："，印 qs data。
+""，印。
+
+"验证正确性"，印。
+定 sorted = qs data。
+定 expected = 列 1 1 2 3 3 4 5 5 6 9。
+若 sorted == expected 则 印 "正确" 否则 印 "错误"。

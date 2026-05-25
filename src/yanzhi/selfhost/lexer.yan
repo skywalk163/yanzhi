@@ -1,0 +1,164 @@
+# 知行语言词法分析器（用知行语言编写）
+# 这是Phase 2的一部分，展示如何用知行语言实现编译器
+
+# Token类型定义
+定TOKEN_NUM="NUM"。
+定TOKEN_STR="STR"。
+定TOKEN_IDENT="IDENT"。
+定TOKEN_VERB="VERB"。
+定TOKEN_KEYWORD="KEYWORD"。
+定TOKEN_DOT="DOT"。
+定TOKEN_EOF="EOF"。
+
+# 关键字集合
+定KEYWORDS=列"定" "设" "函" "若" "则" "否则" "遍历" "当" "真" "假" "空"。
+
+# 动词集合
+定VERBS=列"加" "减" "乘" "除" "模" "幂" "大" "小" "等" "列" "首" "余" "印"。
+
+# Token结构（用列表表示）
+# Token = [type, value, line, column]
+
+# 创建Token
+定make_token=函type value line column。
+  列type value line column。
+。
+
+# 词法分析器状态
+# State = [source, pos, line, column, tokens]
+
+# 创建状态
+定make_state=函source。
+  列source 0 1 1 列。
+。
+
+# 获取当前字符
+定peek_char=函state。
+  定source=state入0。
+  定pos=state入1。
+  若pos小source长则
+    source入pos
+  否则
+    ""
+  。
+。
+
+# 前进一个字符
+定advance=函state。
+  定source=state入0。
+  定pos=state入1。
+  定line=state入2。
+  定column=state入3。
+  
+  定char=peek_char state。
+  
+  若char等"\n"则
+    列source pos加1 line加1 1 state入4。
+  否则
+    列source pos加1 line column加1 state入4。
+  。
+。
+
+# 添加Token
+定add_token=函state type value。
+  定tokens=state入4。
+  定line=state入2。
+  定column=state入3。
+  定token=make_token type value line column。
+  列state入0 state入1 state入2 state入3 tokens添token。
+。
+
+# 检查是否为数字字符
+定is_digit=函char。
+  char大"0"且char小"9"。
+。
+
+# 检查是否为字母字符
+定is_alpha=函char。
+  char大"a"且char小"z"或char大"A"且char小"Z"。
+。
+
+# 扫描数字
+定scan_number=函state。
+  定start=state入1。
+  
+  # 扫描整数部分
+  定scan_int=函s。
+    定char=peek_char s。
+    若is_digit char则
+      scan_int advance s
+    否则
+      s
+    。
+  。
+  
+  定new_state=scan_int state。
+  
+  # 提取数字文本
+  定source=state入0。
+  定text=source入start到new_state入1。
+  定value=text转数。
+  
+  add_token new_state TOKEN_NUM value。
+。
+
+# 扫描标识符
+定scan_identifier=函state。
+  定start=state入1。
+  
+  # 扫描字母数字
+  定scan_alnum=函s。
+    定char=peek_char s。
+    若is_alpha char或is_digit char则
+      scan_alnum advance s
+    否则
+      s
+    。
+  。
+  
+  定new_state=scan_alnum state。
+  
+  # 提取标识符文本
+  定source=state入0。
+  定text=source入start到new_state入1。
+  
+  # 检查是否为关键字或动词
+  若KEYWORDS含text则
+    add_token new_state TOKEN_KEYWORD text
+  否则若VERBS含text则
+    add_token new_state TOKEN_VERB text
+  否则
+    add_token new_state TOKEN_IDENT text
+  。
+。
+
+# 主词法分析函数
+定tokenize=函source。
+  定state=make_state source。
+  
+  # 循环扫描
+  定scan=函s。
+    定char=peek_char s。
+    
+    若char等""则
+      # EOF
+      add_token s TOKEN_EOF ""
+    否则若is_digit char则
+      scan scan_number s
+    否则若is_alpha char则
+      scan scan_identifier s
+    否则若char等"。"则
+      scan add_token advance s TOKEN_DOT "。"
+    否则
+      # 跳过其他字符
+      scan advance s
+    。
+  。
+  
+  scan state。
+。
+
+# 测试
+定test_source="定x=5加3。"。
+定tokens=tokenize test_source。
+印tokens。

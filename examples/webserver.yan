@@ -1,0 +1,69 @@
+# 言知 · Web 服务器 （双轨设计）
+# 用 Python 内建 http.server 提供 HTTP 服务
+# 言知负责业务逻辑，Python 负责底层 HTTP
+
+"言知 Web 服务器演示"，印。
+""，印。
+
+{{
+from http.server import HTTPServer， BaseHTTPRequestHandler
+import json
+
+class YanHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-Type'， 'text/html; charset=utf-8')
+            self.end_headers()
+            html = '''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>言知 Web</title>
+<style>body{font-family:sans-serif;margin:40px;background:#f5f5f5}
+h1{color:#1a7a5c}.box{background:white;padding:20px;border-radius:8px;box-shadow:0 1px 3px rgba(0，0，0，.1)}
+pre{background:#f0f0f0;padding:10px;border-radius:4px}
+</style></head><body>
+<h1>言知 (Yanzhi) Web 服务器</h1>
+<div class="box">
+<p>这个页面由 <b>言知语言</b> 生成！</p>
+<p>服务端使用 Python 内建 http.server，</p>
+<p>言知负责表达语义和业务逻辑。</p>
+<hr>
+<h3>言知设计哲学</h3>
+<ul>
+<li>中文语法 + 自然意合表达</li>
+<li>极简关键字（仅 7 个）</li>
+<li>函数式核心 + 宏系统</li>
+<li>双轨设计（原生 + Python 生态）</li>
+</ul>
+<pre>定言知=函心言行。</pre>
+</div>
+<p style="color:#888;font-size:12px;margin-top:20px">
+言知 v0.1 · 2026-05-23</p>
+</body></html>'''
+            self.wfile.write(html.encode('utf-8'))
+        elif self.path == '/api':
+            self.send_response(200)
+            self.send_header('Content-Type'， 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "language": "yanzhi"，
+                "version": "0.1.0"，
+                "keywords": 7，
+                "features": ["中文语法"， "函数式"， "管道"， "宏"， "言律句式"]
+            }， ensure_ascii=False).encode())
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b'404 Not Found')
+
+port = 8080
+server = HTTPServer((''， port)， YanHandler)
+print(f"启动 Web 服务: http://localhost:{port}")
+print(f"  GET /     → 首页")
+print(f"  GET /api  → JSON 接口")
+print(f"按 Ctrl+C 停止服务")
+server.serve_forever()
+}}
+
+""，印。
+"注：实际运行时取消上方 {{ }} 块中最后两行的注释即可启动"，印。
+"当前为演示代码，运行前请确认端口 8080 未被占用"，印。

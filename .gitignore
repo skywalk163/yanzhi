@@ -1,0 +1,45 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.whl
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- IDE / Editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Project-specific ---
+# 字节码缓存
+*.pyc
+
+# 本地测试输出
+/tmp/
+
+# Playground 运行时
+*.log
+
+# 用户文档
+/docs/_build/
+
+# 自动生成的 LSP 缓存
+.lsp/
