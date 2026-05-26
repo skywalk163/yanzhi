@@ -18,26 +18,26 @@ from yanzhi.runtime.builtin import is_builtin
 
 # 动词到操作码的映射
 VERB_TO_OPCODE = {
-    '加': OpCode.ADD,
-    '减': OpCode.SUB,
-    '乘': OpCode.MUL,
-    '除': OpCode.DIV,
-    '模': OpCode.MOD,
-    '幂': OpCode.POW,
-    '等': OpCode.EQ,
+    '相加': OpCode.ADD,
+    '相减': OpCode.SUB,
+    '相乘': OpCode.MUL,
+    '相除': OpCode.DIV,
+    '取余': OpCode.MOD,
+    '乘方': OpCode.POW,
+    '等于': OpCode.EQ,
     '不等': OpCode.NE,
-    '小': OpCode.LT,
-    '小等': OpCode.LE,
-    '大': OpCode.GT,
-    '大等': OpCode.GE,
-    '且': OpCode.AND,
-    '或': OpCode.OR,
-    '非': OpCode.NOT,
-    '负': OpCode.NEG,
+    '小于': OpCode.LT,
+    '小于等于': OpCode.LE,
+    '大于': OpCode.GT,
+    '大于等于': OpCode.GE,
+    '并且': OpCode.AND,
+    '或者': OpCode.OR,
+    '非也': OpCode.NOT,
+    '取负': OpCode.NEG,
 }
 
-# 需要翻转操作数顺序的比较动词（a大b → b<a）
-REVERSE_COMPARISON = {'大': OpCode.LT, '大等': OpCode.LE}
+# 需要翻转操作数顺序的比较动词（a大于b → b<a）
+REVERSE_COMPARISON = {'大于': OpCode.LT, '大于等于': OpCode.LE}
 
 
 class Compiler:
@@ -136,11 +136,11 @@ class Compiler:
                 elif len(args) == 1:
                     self._compile(args[0])
                 self.chunk.emit(actual_opcode)
-            elif verb.name == '负':
+            elif verb.name == '取负':
                 # 一元负
                 self._compile(args[0])
                 self.chunk.emit(OpCode.NEG)
-            elif verb.name == '非':
+            elif verb.name == '非也':
                 # 逻辑非
                 self._compile(args[0])
                 self.chunk.emit(OpCode.NOT)
@@ -174,11 +174,11 @@ class Compiler:
                     self.chunk.emit(REVERSE_COMPARISON[verb_name])
                 return
             # 处理一元运算
-            if verb_name == '负':
+            if verb_name == '取负':
                 self._compile(args[0])
                 self.chunk.emit(OpCode.NEG)
                 return
-            if verb_name == '非':
+            if verb_name == '非也':
                 self._compile(args[0])
                 self.chunk.emit(OpCode.NOT)
                 return

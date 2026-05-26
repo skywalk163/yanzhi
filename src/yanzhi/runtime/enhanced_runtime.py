@@ -19,7 +19,7 @@ def enhanced_math_functions():
         '绝对': (1, lambda x: abs(x)),
         '最大': (2, lambda x, y: max(x, y)),
         '最小': (2, lambda x, y: min(x, y)),
-        '幂': (2, lambda x, y: x ** y),
+        '乘方': (2, lambda x, y: x ** y),
         '开方': (1, lambda x: math.sqrt(x)),
         '四舍五入': (1, lambda x: round(x)),
         '向下取整': (1, lambda x: math.floor(x)),

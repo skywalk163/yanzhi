@@ -198,8 +198,8 @@ class Evaluator:
             if first_arg_name and not first_arg_name[0].isascii():
                 self.current_topic = first_arg_name
 
-        # 特殊处理'用'动词
-        if verb == '用':
+        # 特殊处理'使用'动词
+        if verb == '使用':
             # '用'动词：第一个参数是函数，其余参数是参数
             if len(node.args) > 0:
                 # 先求值第一个参数（函数）
@@ -262,7 +262,7 @@ class Evaluator:
             # 特殊处理高阶函数
             # 高阶函数期望 (函数, 列表)，但管道操作提供 (列表, 函数)
             # 所以需要交换参数顺序
-            if verb in ('皆', '_zh_皆', '只', '_zh_只', '归', '_zh_归', '并', '_zh_并'):
+            if verb in ('映射', '过滤', '归约', '合并'):
                 # 高阶函数：函数在前，列表在后
                 all_args = args + [left_result]
             else:
@@ -712,11 +712,11 @@ if __name__ == '__main__':
     from yanzhi.compiler.parser import parse
     
     test_cases = [
-        "定x=5。",
-        "定y=5加3。",
-        "列1 2 3，皆乘2。",
-        "若5大3则1否则0。",
-        "定平方=函x乘x x。",
+        "定义x=5。",
+        "定义y=5相加3。",
+        "列表1 2 3，映射相乘2。",
+        "如果5大于3那么1否则0。",
+        "定义平方=函数x相乘x x。",
     ]
     
     for source in test_cases:

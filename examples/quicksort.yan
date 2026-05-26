@@ -1,33 +1,34 @@
 # 言知 · 快速排序
-# 使用数学符号表达式 + 函数式管道
+# 使用数学符号表达式 + 函数式列表操作
 
-"快速排序"，印。
-""，印。
+"快速排序"，打印。
+""，打印。
 
 # 分割函数：把列表分成小于和大于等于 pivot 的两部分
-定 split = 函 lst pivot：
-  连 列(只(函 x：x < pivot)(lst))
-     列(只(函 x：x >= pivot)(lst))。
+定义 split = 函数 lst pivot：
+  定义 smaller = 过滤 函数 x：x < pivot。 lst。
+  定义 bigger = 过滤 函数 x：x >= pivot。 lst。
+  连接 smaller bigger。
 。
 
 # 快速排序主函数
-定 qs = 函 lst：
-  若 空 lst 则 lst 否则
-    定 p = 首 lst。
-    定 rest = 余 lst。
-    定 parts = split rest p。
-    连 qs(首 parts)
-       连 列 p
-         qs(首(余 parts))。
+定义 qs = 函数 lst：
+  如果 空值 lst 那么 lst 否则
+    定义 p = 首个 lst。
+    定义 rest = 剩余 lst。
+    定义 parts = split rest p。
+    连接 qs(首个 parts)
+       连接 列表 p
+         qs(首个(剩余 parts))。
 。
 
-"测试排序"，印。
-定 data = 列 3 1 4 1 5 9 2 6 5 3。
-印 "输入："，印 data。
-印 "输出："，印 qs data。
-""，印。
+"测试排序"，打印。
+定义 data = 列表 3 1 4 1 5 9 2 6 5 3。
+打印 "输入："，打印 data。
+打印 "输出："，打印 qs data。
+""，打印。
 
-"验证正确性"，印。
-定 sorted = qs data。
-定 expected = 列 1 1 2 3 3 4 5 5 6 9。
-若 sorted == expected 则 印 "正确" 否则 印 "错误"。
+"验证正确性"，打印。
+定义 sorted = qs data。
+定义 expected = 列表 1 1 2 3 3 4 5 5 6 9。
+如果 sorted == expected 那么 打印 "正确" 否则 打印 "错误"。

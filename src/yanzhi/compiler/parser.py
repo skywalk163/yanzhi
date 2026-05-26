@@ -16,22 +16,22 @@ class Parser:
     # 动词元数表
     VERB_ARITY = {
         # 函数调用（可变参数）
-        '用': -1,
+        '使用': -1,
         # 算术运算（二元）
-        '加': 2, '减': 2, '乘': 2, '除': 2, '模': 2, '幂': 2,
+        '相加': 2, '相减': 2, '相乘': 2, '相除': 2, '取余': 2, '乘方': 2,
         # 一元运算
-        '负': 1, '绝对': 1,
+        '取负': 1, '绝对': 1,
         # 比较运算（二元）
-        '大': 2, '小': 2, '等': 2, '不等': 2, '大等于': 2, '小等于': 2, '大于等于': 2, '小于等于': 2,
+        '大于': 2, '小于': 2, '等于': 2, '不等': 2, '大于等于': 2, '小于等于': 2,
         # 逻辑运算
-        '且': 2, '或': 2, '非': 1,
+        '并且': 2, '或者': 2, '非也': 1,
         # 列表操作
-        '列': -1,  # 可变参数
-        '首': 1, '余': 1, '长': 1, '空': 1,
-        '入': 2, '添': 2, '连': 2, '含': 2, '删': 2,
+        '列表': -1,  # 可变参数
+        '首个': 1, '剩余': 1, '长度': 1, '空值': 1,
+        '索引': 2, '添加': 2, '连接': 2, '包含': 2, '删除': 2,
         '范围': 2,
         # I/O
-        '印': 1,
+        '打印': 1,
         # 谓词
         '是数': 1, '是文': 1, '是列': 1, '是空': 1, '是零': 1, '是正': 1, '是负': 1, '是布尔': 1,
         '全真': 1, '任真': 1, '全假': 1,
@@ -40,13 +40,13 @@ class Parser:
         # 数学函数
         '四舍五入': 2, '最小': 1, '最大': 1, '求和': 1, '求积': 1, '展平': 1, '枚举': 1, '分块': 2, '交错': 2,
         # 高阶函数
-        '皆': 2, '只': 2, '归': 3, '并': 2,
+        '映射': 2, '过滤': 2, '归约': 3, '合并': 2,
         # 字符串操作
         '连接': 2, '子串': 3, '小写': 1, '大写': 1, '查找': 2, '长度': 1, '截取': 3,
     }
     
     # 副词（高阶函数）
-    ADVERBS = {'皆', '只', '归', '并'}
+    ADVERBS = {'映射', '过滤', '归约', '合并'}
     
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
@@ -73,11 +73,11 @@ class Parser:
             return None
         
         # 变量定义
-        if token.type == TokenType.KEYWORD and token.value == '定':
+        if token.type == TokenType.KEYWORD and token.value == '定义':
             return self.parse_define()
         
         # 变量赋值
-        if token.type == TokenType.KEYWORD and token.value == '设':
+        if token.type == TokenType.KEYWORD and token.value == '赋值':
             return self.parse_assign()
         
         # 遍历循环
@@ -107,11 +107,11 @@ class Parser:
             return self._try_idiom_enable()
 
         # 当循环
-        if token.type == TokenType.KEYWORD and token.value == '当':
+        if token.type == TokenType.KEYWORD and token.value == '循环当':
             return self.parse_while()
         
         # 函数定义（作为表达式）
-        if token.type == TokenType.KEYWORD and token.value == '函':
+        if token.type == TokenType.KEYWORD and token.value == '函数':
             return self.parse_lambda()
 
         # 宏定义
@@ -123,7 +123,7 @@ class Parser:
             return self.parse_quote()
         
         # 条件表达式（作为独立语句）
-        if token.type == TokenType.KEYWORD and token.value == '若':
+        if token.type == TokenType.KEYWORD and token.value == '如果':
             result = self.parse_if()
             # 消费结尾的。
             if self.match(TokenType.DOT):
@@ -224,7 +224,7 @@ class Parser:
 
     def parse_define(self) -> Define:
         """解析变量定义"""
-        self.consume(TokenType.KEYWORD, '定', "期望'定'")
+        self.consume(TokenType.KEYWORD, '定义', "期望'定义'")
 
         # 收集变量名（可能被分割成多个Token）
         name_parts = []
@@ -251,7 +251,7 @@ class Parser:
     
     def parse_assign(self) -> Assign:
         """解析变量赋值"""
-        self.consume(TokenType.KEYWORD, '设', "期望'设'")
+        self.consume(TokenType.KEYWORD, '赋值', "期望'赋值'")
         name = self.consume(TokenType.IDENT, None, "期望标识符").value
         
         # 检查是否是索引赋值：lst[j] = expr
@@ -271,12 +271,12 @@ class Parser:
     
     def parse_if(self) -> If:
         """解析条件表达式"""
-        self.consume(TokenType.KEYWORD, '若', "期望'若'")
+        self.consume(TokenType.KEYWORD, '如果', "期望'如果'")
         condition = self.parse_expression()
         
-        # 支持'则'和'就'两种关键字
-        if not self.match(TokenType.KEYWORD, '则'):
-            self.consume(TokenType.KEYWORD, '就', "期望'则'或'就'")
+        # 支持'那么'和'就'两种关键字
+        if not self.match(TokenType.KEYWORD, '那么'):
+            self.consume(TokenType.KEYWORD, '就', "期望'那么'或'就'")
 
         # 解析then分支：如果后面是：则解析语句块，否则解析单表达式
         then_branch = self._parse_if_branch()
@@ -323,7 +323,7 @@ class Parser:
             self.consume(TokenType.KEYWORD, '到', "期望'到'")
             end = self.parse_expression()
             # 创建范围迭代：range(start, end+1)
-            iterable = Call('范围', [start, Call('加', [end, Num(1)])])
+            iterable = Call('范围', [start, Call('相加', [end, Num(1)])])
         else:
             raise ParseError("期望'于'或'从'", self.peek().line, self.peek().column)
         
@@ -354,7 +354,7 @@ class Parser:
 
         # 创建范围迭代：range(start, end+1)
         # 使用Call节点表示范围
-        range_call = Call('范围', [start, Call('加', [end, Num(1)])])
+        range_call = Call('范围', [start, Call('相加', [end, Num(1)])])
         return ForLoop(var, range_call, body)
 
     def parse_foreach_friendly(self) -> ForLoop:
@@ -372,7 +372,7 @@ class Parser:
             self.consume(TokenType.KEYWORD, '到', "期望'到'")
             end = self.parse_expression()
             # 创建范围迭代：range(start, end+1)
-            iterable = Call('范围', [start, Call('加', [end, Num(1)])])
+            iterable = Call('范围', [start, Call('相加', [end, Num(1)])])
         else:
             raise ParseError("期望'于'或'从'", self.peek().line, self.peek().column)
 
@@ -389,7 +389,7 @@ class Parser:
     
     def parse_while(self) -> While:
         """解析当循环"""
-        self.consume(TokenType.KEYWORD, '当', "期望'当'")
+        self.consume(TokenType.KEYWORD, '循环当', "期望'循环当'")
         condition = self.parse_expression()
         self.consume(TokenType.COLON, None, "期望'：'")
         body = self.parse_block()
@@ -404,7 +404,7 @@ class Parser:
     
     def parse_lambda(self) -> Lambda:
         """解析匿名函数"""
-        self.consume(TokenType.KEYWORD, '函', "期望'函'")
+        self.consume(TokenType.KEYWORD, '函数', "期望'函数'")
 
         # 收集参数
         params = []
@@ -494,7 +494,7 @@ class Parser:
         """检查是否是顶层关键字（新语句的开始）"""
         if token.type == TokenType.KEYWORD:
             return token.value in (
-                '定', '设', '若', '函', '宏', '当', '遍历', '对于', '每次',
+                '定义', '赋值', '如果', '函数', '宏', '循环当', '遍历', '对于', '每次',
                 '返回', '导入', '导出', '结构', '尝试', '试', '注释', '注',
                 '算',
             )
@@ -530,7 +530,7 @@ class Parser:
 
         # 创建 Lambda([], body) 并通过 用() 立即调用
         lambda_node = Lambda([], body)
-        return Call(Ident('用'), [lambda_node])
+        return Call(Ident('使用'), [lambda_node])
 
     def parse_block(self) -> Block:
         """解析代码块"""
@@ -584,9 +584,9 @@ class Parser:
 
             # 将比较符号映射为中文比较动词
             op_to_verb = {
-                '>': '大', '<': '小',
-                '>=': '大等于', '<=': '小等于',
-                '==': '等', '!=': '不等',
+                '>': '大于', '<': '小于',
+                '>=': '大于等于', '<=': '小于等于',
+                '==': '等于', '!=': '不等',
             }
             verb = op_to_verb.get(op, op)
             left = Call(Ident(verb), [left, right])
@@ -603,7 +603,7 @@ class Parser:
             right = self.parse_multiplicative()
 
             # 将内联运算符转换为对应的中文动词调用
-            op_to_verb = {'+': '加', '-': '减'}
+            op_to_verb = {'+': '相加', '-': '相减'}
             verb = op_to_verb.get(op, op)
             left = Call(Ident(verb), [left, right])
 
@@ -677,7 +677,7 @@ class Parser:
             right = self.parse_power()
 
             # 将内联运算符转换为对应的中文动词调用
-            op_to_verb = {'*': '乘', '/': '除', '%': '模'}
+            op_to_verb = {'*': '相乘', '/': '相除', '%': '取余'}
             verb = op_to_verb.get(op, op)
             left = Call(Ident(verb), [left, right])
 
@@ -692,11 +692,11 @@ class Parser:
             if self.peek().type == TokenType.STAR and self.peek().value == '**':
                 op_token = self.advance()
                 right = self.parse_power()  # 右结合
-                left = Call(Ident('幂'), [left, right])
+                left = Call(Ident('乘方'), [left, right])
             elif self.peek().type == TokenType.CARET:
                 op_token = self.advance()
                 right = self.parse_power()  # 右结合
-                left = Call(Ident('幂'), [left, right])
+                left = Call(Ident('乘方'), [left, right])
 
         return left
     
@@ -754,13 +754,13 @@ class Parser:
                 if self.match(TokenType.COMMA):
                     pass
             self.consume(TokenType.CRBRACKET, None, "期望'】'")  # 消费 】
-            return Call('列', elements)
+            return Call('列表', elements)
 
-        # 负号关键字（"负"）
-        if token.type == TokenType.KEYWORD and token.value == '负':
+        # 负号关键字
+        if token.type == TokenType.KEYWORD and token.value == '取负':
             self.advance()  # 消费"负"
             operand = self.parse_primary()
-            return Call('负', [operand])
+            return Call('取负', [operand])
 
         # 负数（-开头）
         if token.type == TokenType.MINUS:
@@ -771,9 +771,9 @@ class Parser:
                 num = self.advance()
                 return Num(-num.value)
             elif next_token.type == TokenType.IDENT:
-                # -x 转换为 负x
+                # -x 转换为 取负x
                 ident = self.parse_primary()
-                return Call('负', [ident])
+                return Call('取负', [ident])
             else:
                 raise ParseError("期望数字或标识符", token.line, token.column)
             self.advance()
@@ -838,7 +838,7 @@ class Parser:
             return self.parse_adverb_call()
         
         # 函数定义
-        if token.type == TokenType.KEYWORD and token.value == '函':
+        if token.type == TokenType.KEYWORD and token.value == '函数':
             return self.parse_lambda()
 
         # 宏定义
@@ -846,7 +846,7 @@ class Parser:
             return self.parse_macro()
 
         # 条件表达式
-        if token.type == TokenType.KEYWORD and token.value == '若':
+        if token.type == TokenType.KEYWORD and token.value == '如果':
             return self.parse_if()
 
         raise ParseError(f"意外的Token: {token}", token.line, token.column)
@@ -923,7 +923,7 @@ class Parser:
         
         # 关键字
         if token.type == TokenType.KEYWORD:
-            return token.value in ('则', '就', '否则', '不然', '结束', '完毕')
+            return token.value in ('那么', '就', '否则', '不然', '结束', '完毕')
         
         return False
     

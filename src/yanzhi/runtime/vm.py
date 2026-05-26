@@ -77,18 +77,18 @@ class VM:
     def _setup_builtins(self):
         """设置内置函数"""
         self.builtins = {
-            '印': self._builtin_print,
-            '首': self._builtin_first,
+            '打印': self._builtin_print,
+            '首个': self._builtin_first,
             '尾': self._builtin_last,
-            '长': self._builtin_len,
-            '入': self._builtin_getitem,
+            '长度': self._builtin_len,
+            '索引': self._builtin_getitem,
             '取': self._builtin_getitem,  # 数组索引
-            '皆': self._builtin_map,
-            '只': self._builtin_filter,
+            '映射': self._builtin_map,
+            '过滤': self._builtin_filter,
             '排': self._builtin_sort,
             '反': self._builtin_reverse,
             '合': self._builtin_join,
-            '含': self._builtin_contains,
+            '包含': self._builtin_contains,
             '类': self._builtin_type,
             '字': self._builtin_str,
             '整': self._builtin_int,
@@ -401,9 +401,9 @@ class VM:
 
     def _handle_builtin(self, name: str, args: list) -> None:
         """处理内置动词调用：依次查找 VM 内置→evaluator BUILTINS→globals"""
-        # 0. 副词（皆/只/归/并）在管道中参数顺序为 (func, lst)
+        # 0. 副词（映射/过滤/归约/合并）在管道中参数顺序为 (func, lst)
         #    但栈上顺序为 (lst, func)，需要交换
-        if name in ('皆', '_zh_皆', '只', '_zh_只', '归', '_zh_归', '并', '_zh_并') and len(args) == 2:
+        if name in ('映射', '过滤', '归约', '合并') and len(args) == 2:
             args = [args[1], args[0]]  # 交换为 (func, lst)
 
         # 1. 检查 VM 内置函数（印/首/尾/长等有特殊实现的方法）

@@ -354,7 +354,7 @@ def _type(x):
     elif isinstance(x, list):
         return '列'
     elif callable(x):
-        return '函'
+        return '函数'
     else:
         return '未知'
 
@@ -362,55 +362,53 @@ def _type(x):
 # 内置函数字典
 BUILTINS = {
     # 函数调用
-    '用': _apply,
+    '使用': _apply,
     
     # 算术运算
-    '加': _add,
-    '减': _sub,
-    '乘': _mul,
-    '除': _div,
-    '模': _mod,
-    '幂': _pow,
-    '负': _neg,
+    '相加': _add,
+    '相减': _sub,
+    '相乘': _mul,
+    '相除': _div,
+    '取余': _mod,
+    '乘方': _pow,
+    '取负': _neg,
     '绝对': _abs,
     
     # 比较运算
-    '大': _gt,
-    '小': _lt,
-    '等': _eq,
+    '大于': _gt,
+    '小于': _lt,
+    '等于': _eq,
     '不等': _ne,
-    '大等于': _ge,
-    '小等于': _le,
     '大于等于': _ge,
     '小于等于': _le,
     
     # 逻辑运算
-    '且': _and,
-    '或': _or,
-    '非': _not,
+    '并且': _and,
+    '或者': _or,
+    '非也': _not,
     
     # 列表操作
-    '列': _list,
-    '首': _head,
-    '余': _tail,
-    '入': _nth,
+    '列表': _list,
+    '首个': _head,
+    '剩余': _tail,
+    '索引': _nth,
     '取': _nth,  # 数组索引
-    '长': _len,
-    '添': _append,
-    '连': _concat,
-    '含': _contains,
-    '删': _remove,
-    '空': _is_empty,
+    '长度': _len,
+    '添加': _append,
+    '连接': _concat,
+    '包含': _contains,
+    '删除': _remove,
+    '空值': _is_empty,
     '范围': _range,
     
     # 高阶函数
-    '皆': _map,
-    '只': _filter,
-    '归': _reduce,
-    '并': _zip,
+    '映射': _map,
+    '过滤': _filter,
+    '归约': _reduce,
+    '合并': _zip,
     
     # I/O
-    '印': _print,
+    '打印': _print,
 
     # 谓词函数
     '是数': lambda x: isinstance(x, (int, float)),

@@ -33,7 +33,7 @@ def try_rewrite(tokens: List[Token], pos: int) -> Optional[Tuple[List[Token], in
     if token.type != TokenType.KEYWORD:
         return None
 
-    if token.value == '当':
+    if token.value == '循环当':
         return _try_when_pattern(tokens, pos)
     elif token.value == '每隔':
         return _try_interval_pattern(tokens, pos)
@@ -49,11 +49,11 @@ def try_rewrite(tokens: List[Token], pos: int) -> Optional[Tuple[List[Token], in
 
 def _try_when_pattern(tokens: List[Token], pos: int) -> Optional[Tuple[List[Token], int]]:
     """
-    匹配: KEYWORD(当) <条件> [COMMA] KEYWORD(就) <动作>
-    展开: KEYWORD(若) <条件> KEYWORD(则) <动作>
+    匹配: KEYWORD(循环当) <条件> [COMMA] KEYWORD(就) <动作>
+    展开: KEYWORD(如果) <条件> KEYWORD(那么) <动作>
     """
     start = pos
-    pos += 1  # skip KEYWORD(当)
+    pos += 1  # skip KEYWORD(循环当)
 
     # ---- 条件部分 (到 COMMA 或 KEYWORD(就) 为止) ----
     condition_tokens = []
@@ -91,18 +91,18 @@ def _try_when_pattern(tokens: List[Token], pos: int) -> Optional[Tuple[List[Toke
 
     consumed = pos - start
 
-    # 展开为 若 <条件> 则 <动作>  (不包含句号, 让上层 parser 处理)
+    # 展开为 如果 <条件> 那么 <动作>  (不包含句号, 让上层 parser 处理)
     rewritten: List[Token] = [
-        Token(TokenType.KEYWORD, '若'),
+        Token(TokenType.KEYWORD, '如果'),
         *condition_tokens,
-        Token(TokenType.KEYWORD, '则'),
+        Token(TokenType.KEYWORD, '那么'),
         *action_tokens,
     ]
     return (rewritten, consumed)
 
 
 # ---------------------------------------------------------------------------
-# 每隔 N 单位 → 当 真: (无限循环)
+# 每隔 N 单位 → 循环当 真: (无限循环)
 # ---------------------------------------------------------------------------
 
 def _try_interval_pattern(tokens: List[Token], pos: int) -> Optional[Tuple[List[Token], int]]:
@@ -142,9 +142,9 @@ def _try_interval_pattern(tokens: List[Token], pos: int) -> Optional[Tuple[List[
 
     consumed = pos - start
 
-    # 展开为 当 真: <动作> 结束
+    # 展开为 循环当 真: <动作> 结束
     rewritten: List[Token] = [
-        Token(TokenType.KEYWORD, '当'),
+        Token(TokenType.KEYWORD, '循环当'),
         Token(TokenType.BOOL, True),
         Token(TokenType.COLON, '：'),
         *action_tokens,
@@ -214,9 +214,9 @@ def _try_ifelse_pattern(tokens: List[Token], pos: int) -> Optional[Tuple[List[To
     consumed = pos - start
 
     rewritten: List[Token] = [
-        Token(TokenType.KEYWORD, '若'),
+        Token(TokenType.KEYWORD, '如果'),
         *condition_tokens,
-        Token(TokenType.KEYWORD, '则'),
+        Token(TokenType.KEYWORD, '那么'),
         *action_tokens,
     ]
     if else_tokens:

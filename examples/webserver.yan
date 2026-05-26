@@ -2,8 +2,8 @@
 # 用 Python 内建 http.server 提供 HTTP 服务
 # 言知负责业务逻辑，Python 负责底层 HTTP
 
-"言知 Web 服务器演示"，印。
-""，印。
+"言知 Web 服务器演示"，打印。
+""，打印。
 
 {{
 from http.server import HTTPServer， BaseHTTPRequestHandler
@@ -64,6 +64,6 @@ print(f"按 Ctrl+C 停止服务")
 server.serve_forever()
 }}
 
-""，印。
-"注：实际运行时取消上方 {{ }} 块中最后两行的注释即可启动"，印。
-"当前为演示代码，运行前请确认端口 8080 未被占用"，印。
+""，打印。
+"注：实际运行时取消上方 {{ }} 块中最后两行的注释即可启动"，打印。
+"当前为演示代码，运行前请确认端口 8080 未被占用"，打印。

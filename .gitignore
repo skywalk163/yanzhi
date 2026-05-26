@@ -43,3 +43,13 @@ Thumbs.db
 
 # 自动生成的 LSP 缓存
 .lsp/
+
+.auto-coder/
+/actions/
+/output.txt
+.autocoderrules
+.autocodertools
+.autocodercommands
+.autocoderagents
+.autocoderlinters
+.autocoderworkflow

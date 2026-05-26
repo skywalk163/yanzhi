@@ -128,8 +128,8 @@ def get_error_suggestion(error: YanError) -> str:
         if '期望' in message:
             if '。' in message:
                 return "每个语句应该以句号'。'结束"
-            elif '则' in message:
-                return "条件语句需要'则'关键字来分隔条件和结果"
+            elif '那么' in message:
+                return "条件语句需要'那么'关键字来分隔条件和结果"
             elif '否则' in message:
                 return "条件语句需要'否则'关键字来提供默认值"
             elif '结束' in message:
