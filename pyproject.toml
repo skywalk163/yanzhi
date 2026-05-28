@@ -11,11 +11,72 @@ dependencies = [
     "antlr4-python3-runtime>=4.9.3",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "flake8>=7.0",
+]
+
 [project.scripts]
 yanzhi = "yanzhi.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# === pytest 配置 ===
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: 慢速测试（如冒泡排序、汉诺塔等）",
+    "stdlib: 标准库函数测试",
+    "integration: 端到端集成测试",
+]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+
+# === coverage 配置 ===
+[tool.coverage.run]
+source = ["yanzhi"]
+omit = [
+    "*/tests/*",
+    "*/stdlib/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if False:",
+]
+
+# === flake8 配置 ===
+[tool.flake8]
+max-line-length = 127
+max-complexity = 15
+extend-ignore = [
+    "E203",   # 空格在 : 前（兼容 black）
+    "W503",   # 换行在运算符前（兼容 black）
+    "E501",   # 长行（由 flake8-bugbear 的 B950 替代）
+]
+per-file-ignores = [
+    "**/__init__.py: F401",
+]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    ".auto-coder",
+    "actions",
+]

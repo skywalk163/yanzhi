@@ -6,6 +6,7 @@
 from typing import List, Tuple, Optional, Dict, Any
 from enum import Enum, auto
 from ..yan.action_vocab import ACTION_VOCAB
+from .trie import Trie, get_keyword_trie
 
 
 class TokenType(Enum):
@@ -109,6 +110,8 @@ class PreTokenizer:
         '列表', '首个', '剩余', '索引', '长度', '添加', '连接', '包含', '删除', '空值', '范围',
         # I/O
         '打印', '读取', '写入',
+        # VM 内置操作（保留单字）
+        '取', '尾', '排', '反', '合', '字', '整', '类',
         # 输入函数
         '输入', '读入', '读行', '读字符', '读键', '读整数', '读小数', '读确认', '确认',
         # 异常
@@ -117,13 +120,34 @@ class PreTokenizer:
         '行',
         # 谓词
         '是数', '是文', '是列', '是空', '是零', '是正', '是负', '是布尔',
-        '全真', '任真', '全假',
+        '全真', '任真', '全假', '是串', '是文件', '是目录',
         # 序列操作
-        '反转', '去重', '位置', '子列', '拉链', '交集', '并集', '差集',
+        '反转', '去重', '位置', '子列', '拉链', '交集', '并集', '差集', '计数',
         # 数学函数
-        '四舍五入', '最小', '最大', '求和', '求积', '展平', '枚举', '分块', '交错',
+        '四舍五入', '最小', '最大', '求和', '乘积', '求积', '展平', '枚举', '分块', '交错', '取整',
+        '开方', '正弦', '余弦', '正切', '指数', '对数', '绝对值', '范围步', '间隔',
         # 字符串操作
-        '连接', '子串', '小写', '大写', '查找', '长度', '截取',
+        '连接', '子串', '小写', '大写', '查找', '长度', '截取', '分割', '替换', '格式化',
+        # 字典
+        '字典', '键', '设键', '键集', '值集', '含键', '删键', '键数',
+        # 随机
+        '随机', '随机整数', '随机选择', '随机打乱', '随机采样',
+        # 文件（扩展）
+        '存在', '追加', '删除文件', '列出目录',
+        # JSON
+        '编JSON', '解JSON', '读JSON', '写JSON', '紧JSON',
+        # URL
+        '编码URL', '解码URL', '解析URL',
+        # 正则
+        '正则测试', '正则匹配', '正则搜索', '正则全找', '正则替换', '正则分割',
+        # Python 互操作
+        '求值Py', '执行Py', '导入模块', '取模块', '调模块',
+        # C 互操作
+        '加载C库', '取C符号', '调C函数', '调C双精',
+        # 数据库
+        '开库', '关库', '执行SQL', '查询SQL', '执行参数', '表列表', '提交',
+        # 重复
+        '重复', '交织',
         # 动词白名单（高层语义 → 内核动词映射）
         *ACTION_VOCAB.keys(),
     }
@@ -421,31 +445,27 @@ class PreTokenizer:
     
     def scan_chinese(self):
         """扫描中文（关键字/动词/标识符）"""
-        # 尝试贪心匹配最长的关键字/动词/副词
-        for length in [4, 3, 2, 1]:
-            if self.pos + length <= len(self.source):
-                text = self.source[self.pos:self.pos+length]
-
-                # 检查是否为动词（优先于关键字）
-                if text in self.VERBS:
-                    for _ in range(length):
-                        self.advance()
-                    self.add_token(TokenType.VERB, text)
-                    return
-
-                # 检查是否为关键字
-                if text in self.KEYWORDS:
-                    for _ in range(length):
-                        self.advance()
-                    self.add_token(TokenType.KEYWORD, text)
-                    return
-
-                # 检查是否为副词
-                if text in self.ADVERBS:
-                    for _ in range(length):
-                        self.advance()
-                    self.add_token(TokenType.ADVERB, text)
-                    return
+        # 使用Trie树进行最长匹配
+        trie = get_keyword_trie()
+        match = trie.find_longest_match(self.source, self.pos)
+        
+        if match:
+            length, token_type_str, value = match
+            if token_type_str == 'VERB':
+                for _ in range(length):
+                    self.advance()
+                self.add_token(TokenType.VERB, value)
+                return
+            elif token_type_str == 'KEYWORD':
+                for _ in range(length):
+                    self.advance()
+                self.add_token(TokenType.KEYWORD, value)
+                return
+            elif token_type_str == 'ADVERB':
+                for _ in range(length):
+                    self.advance()
+                self.add_token(TokenType.ADVERB, value)
+                return
         
         # 如果不是关键字/动词/副词，则作为标识符的一个字符
         start = self.pos
@@ -453,19 +473,11 @@ class PreTokenizer:
         
         # 继续扫描，直到遇到关键字/动词/副词或非中文字符
         # 策略：只有多字符(2+)动词/关键字才中断单字符标识符扩展
-        # 单字符动词可能是标识符的一部分（如"阶乘"中的"乘"）
         while not self.at_end() and self.is_chinese_char(self.peek()):
-            # 检查后续2+字符是否形成完整的动词/关键字
-            found_multi = False
-            for length in [4, 3, 2]:
-                if self.pos + length <= len(self.source):
-                    text = self.source[self.pos:self.pos+length]
-                    if text in self.VERBS or text in self.KEYWORDS or text in self.ADVERBS:
-                        found_multi = True
-                        break
-            if found_multi:
+            # 使用Trie检查后续是否形成完整的动词/关键字
+            next_match = trie.find_longest_match(self.source, self.pos)
+            if next_match and next_match[0] >= 2:  # 只考虑2个字符以上的匹配
                 break
-            
             self.advance()
         
         text = self.source[start:self.pos]

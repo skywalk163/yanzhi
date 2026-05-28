@@ -1,34 +1,40 @@
 # 言知 · 快速排序
-# 使用数学符号表达式 + 函数式列表操作
+# 分治思想 + 循环实现
 
 "快速排序"，打印。
 ""，打印。
 
-# 分割函数：把列表分成小于和大于等于 pivot 的两部分
-定义 split = 函数 lst pivot：
-  定义 smaller = 过滤 函数 x：x < pivot。 lst。
-  定义 bigger = 过滤 函数 x：x >= pivot。 lst。
-  连接 smaller bigger。
-。
-
-# 快速排序主函数
 定义 qs = 函数 lst：
-  如果 空值 lst 那么 lst 否则
+  如果 空值 lst 那么 lst 否则：
     定义 p = 首个 lst。
     定义 rest = 剩余 lst。
-    定义 parts = split rest p。
-    连接 qs(首个 parts)
-       连接 列表 p
-         qs(首个(剩余 parts))。
+    定义 left = 列表。
+    定义 right = 列表。
+    定义 i = 0。
+    定义 n = 长度 rest。
+    循环当 i < n：
+      如果 rest[i] < p 那么：
+        赋值 left = 添加 left rest[i]。
+      否则：
+        赋值 right = 添加 right rest[i]。
+      。
+      赋值 i = i + 1。
+    。
+    定义 sorted_left = qs left。
+    定义 sorted_right = qs right。
+    定义 middle = 列表 p。
+    定义 result = 连接 sorted_left middle。
+    赋值 result = 连接 result sorted_right。
+    result。
+  。
 。
 
 "测试排序"，打印。
 定义 data = 列表 3 1 4 1 5 9 2 6 5 3。
 打印 "输入："，打印 data。
-打印 "输出："，打印 qs data。
-""，打印。
+定义 sorted = qs data。
+打印 "输出："，打印 sorted。
 
 "验证正确性"，打印。
-定义 sorted = qs data。
 定义 expected = 列表 1 1 2 3 3 4 5 5 6 9。
 如果 sorted == expected 那么 打印 "正确" 否则 打印 "错误"。

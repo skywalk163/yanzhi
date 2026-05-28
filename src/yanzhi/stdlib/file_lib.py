@@ -55,12 +55,12 @@ def _list_dir(path: str) -> list[str]:
 
 
 LIBS = {
-    '读': (1, _read_file),
-    '写': (2, _write_file),
-    '追': (2, _append_file),
+    '读取': (1, _read_file),
+    '写入': (2, _write_file),
+    '追加': (2, _append_file),
     '存在': (1, _exists),
     '是目录': (1, _is_dir),
     '是文件': (1, _is_file),
-    '删文件': (1, _delete_file),
-    '列目录': (1, _list_dir),
+    '删除文件': (1, _delete_file),
+    '列出目录': (1, _list_dir),
 }

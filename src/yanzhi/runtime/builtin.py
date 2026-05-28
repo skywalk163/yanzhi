@@ -457,7 +457,6 @@ BUILTINS = {
     '小写': _lower,
     '去空': _strip,
     '分割': _split,
-    '连接': _join,
     '替换': _replace,
     '含文': _contains_str,
     '始为': _starts_with,

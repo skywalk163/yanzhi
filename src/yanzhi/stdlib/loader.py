@@ -16,22 +16,22 @@ from typing import Any, Callable
 
 # 默认加载的基本库模块
 DEFAULT_LIBS = [
-    'yan.stdlib.math_lib',
-    'yan.stdlib.string_lib',
-    'yan.stdlib.compare_lib',
-    'yan.stdlib.seq_lib',
-    'yan.stdlib.pred_lib',
-    'yan.stdlib.util_lib',
-    'yan.stdlib.file_lib',
-    'yan.stdlib.random_lib',
-    'yan.stdlib.dict_lib',
-    'yan.stdlib.input_lib',
-    'yan.stdlib.python_lib',
-    'yan.stdlib.c_lib',
-    'yan.stdlib.net_lib',
-    'yan.stdlib.db_lib',
-    'yan.stdlib.json_lib',
-    'yan.stdlib.regex_lib',
+    'yanzhi.stdlib.math_lib',
+    'yanzhi.stdlib.string_lib',
+    'yanzhi.stdlib.compare_lib',
+    'yanzhi.stdlib.seq_lib',
+    'yanzhi.stdlib.pred_lib',
+    'yanzhi.stdlib.util_lib',
+    'yanzhi.stdlib.file_lib',
+    'yanzhi.stdlib.random_lib',
+    'yanzhi.stdlib.dict_lib',
+    'yanzhi.stdlib.input_lib',
+    'yanzhi.stdlib.python_lib',
+    'yanzhi.stdlib.c_lib',
+    'yanzhi.stdlib.net_lib',
+    'yanzhi.stdlib.db_lib',
+    'yanzhi.stdlib.json_lib',
+    'yanzhi.stdlib.regex_lib',
 ]
 
 

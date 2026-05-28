@@ -14,8 +14,6 @@
 
 LIBS = {
     '不等': (2, lambda a, b: a != b),
-    '小等于': (2, lambda a, b: a <= b),
-    '大等于': (2, lambda a, b: a >= b),
     '小于等于': (2, lambda a, b: a <= b),
     '大于等于': (2, lambda a, b: a >= b),
 }

@@ -10,6 +10,7 @@ from typing import Any
 from yanzhi.runtime.bytecode import OpCode, BytecodeChunk, Instruction
 from yanzhi.runtime.builtin import BUILTINS
 from yanzhi.runtime.evaluator import Curry
+from yanzhi.stdlib.loader import load_all_libs
 from yanzhi.errors import YanError, NameError as YanNameError, TypeError as YanTypeError
 
 
@@ -73,6 +74,7 @@ class VM:
         self.chunk: BytecodeChunk | None = None
         self._return_value: Any = None
         self._setup_builtins()
+        self._load_stdlib()
 
     def _setup_builtins(self):
         """设置内置函数"""
@@ -94,6 +96,17 @@ class VM:
             '整': self._builtin_int,
             '绝对': self._builtin_abs,
         }
+
+    def _load_stdlib(self):
+        """加载标准库到全局变量"""
+        try:
+            libs = load_all_libs()
+            for name, (arity, func) in libs.items():
+                self.globals[name] = func
+        except Exception as e:
+            # stdlib 加载失败不应中断启动
+            import sys
+            print(f"[警告] 标准库加载失败: {e}", file=sys.stderr)
 
     def run(self, chunk: BytecodeChunk) -> Any:
         """执行字节码块"""

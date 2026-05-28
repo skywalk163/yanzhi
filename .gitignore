@@ -28,6 +28,15 @@ env/
 .DS_Store
 Thumbs.db
 
+# --- Coverage / Reports ---
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.coverage.lcov
+.pytest_cache/
+.pytest_cache/
+
 # --- Project-specific ---
 # 字节码缓存
 *.pyc
@@ -44,6 +53,7 @@ Thumbs.db
 # 自动生成的 LSP 缓存
 .lsp/
 
+# --- AutoCoder 生成物 ---
 .auto-coder/
 /actions/
 /output.txt
