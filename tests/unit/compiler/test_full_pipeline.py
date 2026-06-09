@@ -124,7 +124,7 @@ class TestFullPipeline:
 
     def test_bubblesort(self):
         """冒泡排序完整示例"""
-        with open(os.path.join(EXAMPLES_DIR, 'bubblesort.yan')) as f:
+        with open(os.path.join(EXAMPLES_DIR, 'bubblesort.yan'), encoding='utf-8') as f:
             code = f.read()
         out, res, err = run_code(code)
         assert err is None, f"出错: {err}"
@@ -135,7 +135,7 @@ class TestFullPipeline:
 
     def test_hanoi(self):
         """汉诺塔递归示例"""
-        with open(os.path.join(EXAMPLES_DIR, 'hanoi.yan')) as f:
+        with open(os.path.join(EXAMPLES_DIR, 'hanoi.yan'), encoding='utf-8') as f:
             code = f.read()
         out, res, err = run_code(code)
         assert err is None, f"出错: {err}"
