@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""知行语言宏展开器
+"""言知语言宏展开器
 
 实现宏的编译时展开，包括：
 - 宏调用检测
 - 参数替换
 - 递归展开
+- 内置成语注册
 """
 from __future__ import annotations
 
@@ -37,17 +38,24 @@ class MacroExpander:
                 if len(macro.params) == 0:
                     return self._expand_macro_call(macro, [])
             return node
+        elif isinstance(node, Ident):
+            # Ident 节点也可能是宏引用
+            if self.macro_env.has(node.name):
+                macro = self.macro_env.get(node.name)
+                if len(macro.params) == 0:
+                    return self._expand_macro_call(macro, [])
+            return node
         elif isinstance(node, Define):
-            return Define(name=node.name, value=self.expand(node.value), prefix=node.prefix, type_annot=node.type_annot)
+            return Define(name=node.name, value=self.expand(node.value))
         elif isinstance(node, Assign):
             return Assign(name=node.name, value=self.expand(node.value))
         elif isinstance(node, Lambda):
-            return Lambda(params=node.params, body=self.expand(node.body), type_annot=node.type_annot)
+            return Lambda(params=node.params, body=self.expand(node.body))
         elif isinstance(node, Block):
             return Block(statements=[self.expand(stmt) for stmt in node.statements])
         elif isinstance(node, If):
             return If(
-                cond=self.expand(node.cond),
+                condition=self.expand(node.condition),
                 then_branch=self.expand(node.then_branch),
                 else_branch=self.expand(node.else_branch) if node.else_branch else None,
             )
@@ -63,12 +71,17 @@ class MacroExpander:
                 cond=self.expand(node.cond),
                 body=self.expand(node.body),
             )
+        elif isinstance(node, While):
+            return While(
+                condition=self.expand(node.condition),
+                body=self.expand(node.body),
+            )
         elif isinstance(node, ReturnStmt):
             return ReturnStmt(value=self.expand(node.value))
         elif isinstance(node, TryStmt):
             return TryStmt(
                 try_block=self.expand(node.try_block),
-                catch_var=node.catch_var,
+                error_var=node.error_var,
                 catch_block=self.expand(node.catch_block),
                 finally_block=self.expand(node.finally_block) if node.finally_block else None,
             )
@@ -77,7 +90,10 @@ class MacroExpander:
         elif isinstance(node, Call):
             return self._expand_call(node)
         elif isinstance(node, Pipeline):
-            return Pipeline(steps=[self.expand(step) for step in node.steps])
+            return Pipeline(
+                left=self.expand(node.left),
+                right=self.expand(node.right),
+            )
         elif isinstance(node, Quote):
             # 引用不展开
             return node
@@ -86,6 +102,16 @@ class MacroExpander:
             return node
         elif isinstance(node, ListExpr):
             return ListExpr(elements=[self.expand(e) for e in node.elements])
+        elif isinstance(node, MathExpr):
+            return node
+        elif isinstance(node, PythonCode):
+            return node
+        elif isinstance(node, ForEach):
+            return ForEach(
+                var=node.var,
+                iterable=self.expand(node.iterable),
+                body=self.expand(node.body),
+            )
         else:
             # 字面值节点不需要展开
             return node
@@ -100,9 +126,17 @@ class MacroExpander:
     def _expand_call(self, node: Call) -> Node:
         """展开函数调用（可能是宏调用）"""
         # 检查是否是宏调用
-        if isinstance(node.verb, Word) and self.macro_env.has(node.verb.name):
+        verb_name = None
+        if isinstance(node.verb, Ident):
+            verb_name = node.verb.name
+        elif isinstance(node.verb, Word):
+            verb_name = node.verb.name
+        elif isinstance(node.verb, str):
+            verb_name = node.verb
+
+        if verb_name and self.macro_env.has(verb_name):
             # 宏调用
-            macro = self.macro_env.get(node.verb.name)
+            macro = self.macro_env.get(verb_name)
             return self._expand_macro_call(macro, node.args)
         else:
             # 普通函数调用，展开参数
@@ -133,9 +167,9 @@ class MacroExpander:
     def _replace_params(self, node: Node, param_map: dict[str, Node]) -> Node:
         """替换 AST 中的参数引用
 
-        参数引用是 Word 节点，名称匹配参数名。
+        参数引用是 Ident 或 Word 节点，名称匹配参数名。
         """
-        if isinstance(node, Word) and node.name in param_map:
+        if isinstance(node, (Ident, Word)) and node.name in param_map:
             # 参数引用，替换为实际参数
             return param_map[node.name]
         elif isinstance(node, Program):
@@ -144,8 +178,6 @@ class MacroExpander:
             return Define(
                 name=node.name,
                 value=self._replace_params(node.value, param_map),
-                prefix=node.prefix,
-                type_annot=node.type_annot,
             )
         elif isinstance(node, MacroDef):
             # 宏定义中的参数不替换
@@ -158,7 +190,7 @@ class MacroExpander:
             return Block(statements=[self._replace_params(stmt, param_map) for stmt in node.statements])
         elif isinstance(node, If):
             return If(
-                cond=self._replace_params(node.cond, param_map),
+                condition=self._replace_params(node.condition, param_map),
                 then_branch=self._replace_params(node.then_branch, param_map),
                 else_branch=self._replace_params(node.else_branch, param_map) if node.else_branch else None,
             )
@@ -174,12 +206,17 @@ class MacroExpander:
                 cond=self._replace_params(node.cond, param_map),
                 body=self._replace_params(node.body, param_map),
             )
+        elif isinstance(node, While):
+            return While(
+                condition=self._replace_params(node.condition, param_map),
+                body=self._replace_params(node.body, param_map),
+            )
         elif isinstance(node, ReturnStmt):
             return ReturnStmt(value=self._replace_params(node.value, param_map))
         elif isinstance(node, TryStmt):
             return TryStmt(
                 try_block=self._replace_params(node.try_block, param_map),
-                catch_var=node.catch_var,
+                error_var=node.error_var,
                 catch_block=self._replace_params(node.catch_block, param_map),
                 finally_block=self._replace_params(node.finally_block, param_map) if node.finally_block else None,
             )
@@ -191,14 +228,22 @@ class MacroExpander:
                 args=[self._replace_params(arg, param_map) for arg in node.args],
             )
         elif isinstance(node, Pipeline):
-            return Pipeline(steps=[self._replace_params(step, param_map) for step in node.steps])
+            return Pipeline(
+                left=self._replace_params(node.left, param_map),
+                right=self._replace_params(node.right, param_map),
+            )
         elif isinstance(node, Quote):
-            # 引用中的参数也需要替换
             return Quote(expr=self._replace_params(node.expr, param_map))
         elif isinstance(node, Eval):
-            return Eval(quote=Quote(expr=self._replace_params(node.quote.expr, param_map)))
+            return Eval(expr=self._replace_params(node.expr, param_map))
         elif isinstance(node, ListExpr):
             return ListExpr(elements=[self._replace_params(e, param_map) for e in node.elements])
+        elif isinstance(node, ForEach):
+            return ForEach(
+                var=node.var,
+                iterable=self._replace_params(node.iterable, param_map),
+                body=self._replace_params(node.body, param_map),
+            )
         else:
-            # 字面值节点不需要替换
+            # 字面值节点、MathExpr、PythonCode 不需要替换
             return node

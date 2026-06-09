@@ -1,28 +1,30 @@
 # 冒泡排序 — 言知语言实现
-# 使用 如果...那么：... 语句块语法
 
 定义 冒泡排序 = 函数 lst：
   定义 n = 长度 lst。
   定义 i = 0。
-  循环当 i 小于 n - 1：
+  循环当 i 小于 相减 n 1：
     定义 j = 0。
-    定义 t = 0。
-    循环当 j 小于 n - 1 - i：
-      如果 lst[j] 大于 lst[j + 1] 那么：
-        赋值 t = lst[j]。
-        赋值 lst[j] = lst[j + 1]。
-        赋值 lst[j + 1] = t。
-      。
-      赋值 j = j + 1。
-    。
-    赋值 i = i + 1。
-  。
+    定义 limit = 相减 相减 n 1 i。
+    循环当 j 小于 limit：
+      定义 j1 = 相加 j 1。
+      定义 left = 索引 lst j。
+      定义 right = 索引 lst j1。
+      如果 left 大于 right 那么：
+        定义 temp = 索引 lst j。
+        赋值 lst[j] = right。
+        赋值 lst[j1] = temp。
+      结束。
+      赋值 j = 相加 j 1。
+    结束。
+    赋值 i = 相加 i 1。
+  结束。
   lst。
-。
+结束。
 
-定义 data = 列表 5 3 8 1 9 2 7 4 6。
+定义 unsorted = 列表 5 3 8 1 9 2 7 4 6。
 打印 "排序前："。
-打印 data。
-定义 r = 冒泡排序 data。
+打印 unsorted。
+定义 sorted = 冒泡排序 unsorted。
 打印 "排序后："。
-打印 r。
+打印 sorted。

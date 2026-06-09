@@ -1,164 +1,82 @@
-# 知行语言词法分析器（用知行语言编写）
-# 这是Phase 2的一部分，展示如何用知行语言实现编译器
+# 言知语言词法分析器（用言知语言编写）
+# 自举实现 — 使用双字关键字语法
 
-# Token类型定义
-定TOKEN_NUM="NUM"。
-定TOKEN_STR="STR"。
-定TOKEN_IDENT="IDENT"。
-定TOKEN_VERB="VERB"。
-定TOKEN_KEYWORD="KEYWORD"。
-定TOKEN_DOT="DOT"。
-定TOKEN_EOF="EOF"。
+定义 TOKEN_NUM="NUM"。
+定义 TOKEN_STR="STR"。
+定义 TOKEN_IDENT="IDENT"。
+定义 TOKEN_VERB="VERB"。
+定义 TOKEN_KEYWORD="KEYWORD"。
+定义 TOKEN_DOT="DOT"。
+定义 TOKEN_EOF="EOF"。
 
-# 关键字集合
-定KEYWORDS=列"定" "设" "函" "若" "则" "否则" "遍历" "当" "真" "假" "空"。
+定义 KEYWORDS=列表 "定义" "赋值" "函数" "如果" "那么" "否则" "遍历" "循环当" "真" "假" "空" "宏"。
+定义 VERBS=列表 "相加" "相减" "相乘" "相除" "取余" "乘方" "大于" "小于" "等于" "打印" "列表" "首个" "剩余" "长度" "索引" "映射" "过滤" "归约" "合并"。
 
-# 动词集合
-定VERBS=列"加" "减" "乘" "除" "模" "幂" "大" "小" "等" "列" "首" "余" "印"。
+定义 ZERO="0"。
+定义 NINE="9"。
+定义 CH_A="a"。
+定义 CH_Z="z"。
+定义 CH_AU="A"。
+定义 CH_ZU="Z"。
+定义 DOT="。"。
+定义 EMPTY=""。
 
-# Token结构（用列表表示）
-# Token = [type, value, line, column]
+定义 make_token=函数 type value line column 列表 type value line column。
+定义 make_state=函数 source 列表 source 0 1 1 列表。
+定义 peek_char=函数 s 索引 索引 s 0 索引 s 1。
+定义 advance=函数 s 列表 索引 s 0 相加 索引 s 1 1 索引 s 2 相加 索引 s 3 1 索引 s 4。
+定义 add_token=函数 s type value 列表 索引 s 0 索引 s 1 索引 s 2 索引 s 3 添加 索引 s 4 make_token type value 索引 s 2 索引 s 3。
 
-# 创建Token
-定make_token=函type value line column。
-  列type value line column。
-。
-
-# 词法分析器状态
-# State = [source, pos, line, column, tokens]
-
-# 创建状态
-定make_state=函source。
-  列source 0 1 1 列。
-。
-
-# 获取当前字符
-定peek_char=函state。
-  定source=state入0。
-  定pos=state入1。
-  若pos小source长则
-    source入pos
-  否则
-    ""
-  。
-。
-
-# 前进一个字符
-定advance=函state。
-  定source=state入0。
-  定pos=state入1。
-  定line=state入2。
-  定column=state入3。
-  
-  定char=peek_char state。
-  
-  若char等"\n"则
-    列source pos加1 line加1 1 state入4。
-  否则
-    列source pos加1 line column加1 state入4。
-  。
-。
-
-# 添加Token
-定add_token=函state type value。
-  定tokens=state入4。
-  定line=state入2。
-  定column=state入3。
-  定token=make_token type value line column。
-  列state入0 state入1 state入2 state入3 tokens添token。
-。
-
-# 检查是否为数字字符
-定is_digit=函char。
-  char大"0"且char小"9"。
-。
-
-# 检查是否为字母字符
-定is_alpha=函char。
-  char大"a"且char小"z"或char大"A"且char小"Z"。
-。
+# 字符判断
+定义 is_digit=函数 c：
+  如果 大于 c ZERO 那么 如果 小于 c NINE 那么 真 否则 假 否则 假。
+结束。
+定义 is_alpha=函数 c：
+  定义 low=大于 c CH_A。
+  定义 high=小于 c CH_Z。
+  定义 low_u=大于 c CH_AU。
+  定义 high_u=小于 c CH_ZU。
+  如果 low 那么 如果 high 那么 真 否则 如果 low_u 那么 如果 high_u 那么 真 否则 假 否则 假。
+结束。
 
 # 扫描数字
-定scan_number=函state。
-  定start=state入1。
-  
-  # 扫描整数部分
-  定scan_int=函s。
-    定char=peek_char s。
-    若is_digit char则
-      scan_int advance s
-    否则
-      s
-    。
-  。
-  
-  定new_state=scan_int state。
-  
-  # 提取数字文本
-  定source=state入0。
-  定text=source入start到new_state入1。
-  定value=text转数。
-  
-  add_token new_state TOKEN_NUM value。
-。
+定义 scan_number=函数 s：
+  定义 src=索引 s 0。
+  定义 start=索引 s 1。
+  定义 loop=函数 x：
+    定义 c=peek_char x。
+    如果 is_digit c 那么 loop advance x 否则 x。
+  结束。
+  定义 s2=loop s。
+  定义 text=子串 src start 索引 s2 1。
+  add_token s2 TOKEN_NUM text。
+结束。
 
 # 扫描标识符
-定scan_identifier=函state。
-  定start=state入1。
-  
-  # 扫描字母数字
-  定scan_alnum=函s。
-    定char=peek_char s。
-    若is_alpha char或is_digit char则
-      scan_alnum advance s
-    否则
-      s
-    。
-  。
-  
-  定new_state=scan_alnum state。
-  
-  # 提取标识符文本
-  定source=state入0。
-  定text=source入start到new_state入1。
-  
-  # 检查是否为关键字或动词
-  若KEYWORDS含text则
-    add_token new_state TOKEN_KEYWORD text
-  否则若VERBS含text则
-    add_token new_state TOKEN_VERB text
-  否则
-    add_token new_state TOKEN_IDENT text
-  。
-。
+定义 scan_ident=函数 s：
+  定义 src=索引 s 0。
+  定义 start=索引 s 1。
+  定义 loop=函数 x：
+    定义 c=peek_char x。
+    如果 is_alpha c 那么 loop advance x 否则 如果 is_digit c 那么 loop advance x 否则 x。
+  结束。
+  定义 s2=loop s。
+  定义 text=子串 src start 索引 s2 1。
+  如果 包含 KEYWORDS text 那么 add_token s2 TOKEN_KEYWORD text 否则 如果 包含 VERBS text 那么 add_token s2 TOKEN_VERB text 否则 add_token s2 TOKEN_IDENT text。
+结束。
 
-# 主词法分析函数
-定tokenize=函source。
-  定state=make_state source。
-  
-  # 循环扫描
-  定scan=函s。
-    定char=peek_char s。
-    
-    若char等""则
-      # EOF
-      add_token s TOKEN_EOF ""
-    否则若is_digit char则
-      scan scan_number s
-    否则若is_alpha char则
-      scan scan_identifier s
-    否则若char等"。"则
-      scan add_token advance s TOKEN_DOT "。"
-    否则
-      # 跳过其他字符
-      scan advance s
-    。
-  。
-  
-  scan state。
-。
+# 主词法分析
+定义 tokenize=函数 source：
+  定义 state=make_state source。
+  定义 loop=函数 s：
+    定义 c=peek_char s。
+    如果 等于 c EMPTY 那么 add_token s TOKEN_EOF EMPTY
+    否则 如果 is_digit c 那么 loop scan_number s
+    否则 如果 is_alpha c 那么 loop scan_ident s
+    否则 如果 等于 c DOT 那么 loop add_token advance s TOKEN_DOT DOT
+    否则 loop advance s。
+  结束。
+  索引 loop state 4。
+结束。
 
-# 测试
-定test_source="定x=5加3。"。
-定tokens=tokenize test_source。
-印tokens。
+打印 tokenize "定义 x=5 相加 3"。

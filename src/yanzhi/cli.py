@@ -15,6 +15,49 @@ from yanzhi.compiler.parser import parse
 from yanzhi.runtime.compiler_bc import compile_to_bytecode
 from yanzhi.runtime.vm import VM
 from yanzhi.compiler.errors import YanError
+from yanzhi.compiler.expander import MacroExpander
+from yanzhi.runtime.macro_env import MacroEnvironment
+from yanzhi.yan.dsl_factory import register_builtins
+
+# 内置宏注册标志 & 全局宏环境单例
+_BUILTIN_MACROS_REGISTERED = False
+_GLOBAL_MACRO_ENV = None
+
+
+def _collect_macros(ast, macro_env: MacroEnvironment):
+    """从 AST 中提取宏定义并注册到宏环境"""
+    from yanzhi.compiler.ast import Program, Define, MacroDef, Block
+    def _walk(node):
+        if isinstance(node, Program):
+            for stmt in node.statements:
+                _walk(stmt)
+        elif isinstance(node, Block):
+            for stmt in node.statements:
+                _walk(stmt)
+        elif isinstance(node, Define):
+            if isinstance(node.value, MacroDef):
+                macro_def = node.value
+                macro_def.name = node.name  # 确保宏名与绑定名一致
+                macro_env.set(node.name, macro_def)
+    _walk(ast)
+
+
+def _get_global_macro_env() -> MacroEnvironment:
+    """获取全局宏环境（单例，内置宏只注册一次）"""
+    global _BUILTIN_MACROS_REGISTERED, _GLOBAL_MACRO_ENV
+    if _GLOBAL_MACRO_ENV is not None:
+        return _GLOBAL_MACRO_ENV
+    _GLOBAL_MACRO_ENV = MacroEnvironment()
+    if not _BUILTIN_MACROS_REGISTERED:
+        # 创建临时展开器用于注册内置成语
+        temp_expander = MacroExpander(_GLOBAL_MACRO_ENV)
+        try:
+            register_builtins(temp_expander)
+            _BUILTIN_MACROS_REGISTERED = True
+        except Exception as e:
+            import sys
+            print(f"[警告] 内置成语注册失败: {e}", file=sys.stderr)
+    return _GLOBAL_MACRO_ENV
 
 
 class REPL:
@@ -66,13 +109,19 @@ class REPL:
                 print(f"错误: {e}")
     
     def execute(self, source: str):
-        """执行代码（使用字节码 VM）"""
+        """执行代码（使用字节码 VM + 宏展开）"""
         try:
             # 词法分析
             tokens = lex(source)
             
             # 语法分析
             ast = parse(tokens)
+            
+            # 宏收集与展开
+            macro_env = _get_global_macro_env()
+            _collect_macros(ast, macro_env)
+            expander = MacroExpander(macro_env)
+            ast = expander.expand(ast)
             
             # 编译为字节码并执行
             chunk = compile_to_bytecode(ast)
@@ -122,7 +171,7 @@ class REPL:
 
 
 def run_file(filename: str):
-    """运行文件（使用字节码 VM）"""
+    """运行文件（使用字节码 VM + 宏展开）"""
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             source = f.read()
@@ -132,6 +181,12 @@ def run_file(filename: str):
         
         # 语法分析
         ast = parse(tokens)
+        
+        # 宏收集与展开
+        macro_env = _get_global_macro_env()
+        _collect_macros(ast, macro_env)
+        expander = MacroExpander(macro_env)
+        ast = expander.expand(ast)
         
         # 编译为字节码并执行
         chunk = compile_to_bytecode(ast)

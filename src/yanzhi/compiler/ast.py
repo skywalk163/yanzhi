@@ -131,7 +131,25 @@ class PythonCode(ASTNode):
 
 @dataclass
 class Quote(ASTNode):
-    """引用"""
+    """引用（代码即数据：阻止求值，返回 AST 节点本身）"""
+    expr: ASTNode
+
+
+@dataclass
+class Quasiquote(ASTNode):
+    """反引用模板（代码即数据：允许在引用内部用 嵌入 插值）"""
+    expr: ASTNode
+
+
+@dataclass
+class Unquote(ASTNode):
+    """插值（在反引用内部求值并插入，对应 嵌入 关键字）"""
+    expr: ASTNode
+
+
+@dataclass
+class UnquoteSplicing(ASTNode):
+    """展开插值（在反引用内部求值并展开列表，对应 展开嵌入 关键字）"""
     expr: ASTNode
 
 
@@ -370,9 +388,86 @@ def ast_to_string(node: ASTNode, indent: int = 0) -> str:
     elif isinstance(node, Program):
         stmts_str = ",\n".join(ast_to_string(stmt, indent+1) for stmt in node.statements)
         return f"{prefix}Program([\n{stmts_str}\n{prefix}])"
-    
+
+    elif isinstance(node, Quasiquote):
+        return f"{prefix}Quasiquote(\n{ast_to_string(node.expr, indent+1)}\n{prefix})"
+
+    elif isinstance(node, Unquote):
+        return f"{prefix}Unquote(\n{ast_to_string(node.expr, indent+1)}\n{prefix})"
+
+    elif isinstance(node, UnquoteSplicing):
+        return f"{prefix}UnquoteSplicing(\n{ast_to_string(node.expr, indent+1)}\n{prefix})"
+
     else:
         return f"{prefix}Unknown({type(node).__name__})"
+
+
+def ast_to_source(node: ASTNode) -> str:
+    """将 AST 节点还原为言知源码字符串（代码即数据的逆操作）。
+    
+    用途：
+    - 打印宏展开结果
+    - 把引用的代码数据重新序列化为可读文本
+    - 调试/REPL 回显
+    """
+    if node is None:
+        return '空'
+    if isinstance(node, Num):
+        v = node.value
+        return str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
+    if isinstance(node, Str):
+        return f'"{node.value}"'
+    if isinstance(node, Bool):
+        return '真' if node.value else '假'
+    if isinstance(node, Nil):
+        return '空'
+    if isinstance(node, Ident):
+        return node.name
+    if isinstance(node, Word):
+        return node.name
+    if isinstance(node, Call):
+        verb = node.verb.name if isinstance(node.verb, (Ident, Word)) else str(node.verb)
+        args = ' '.join(ast_to_source(a) for a in node.args)
+        return f'{verb} {args}'.strip()
+    if isinstance(node, Pipeline):
+        return f'{ast_to_source(node.left)} 然后 {ast_to_source(node.right)}'
+    if isinstance(node, Define):
+        return f'定义 {node.name} = {ast_to_source(node.value)}。'
+    if isinstance(node, Assign):
+        return f'赋值 {node.name} = {ast_to_source(node.value)}。'
+    if isinstance(node, Lambda):
+        params = ' '.join(node.params)
+        return f'函数 {params} ：{ast_to_source(node.body)}'
+    if isinstance(node, If):
+        s = f'如果 {ast_to_source(node.condition)} 那么 {ast_to_source(node.then_branch)}'
+        if node.else_branch and not isinstance(node.else_branch, Nil):
+            s += f' 否则 {ast_to_source(node.else_branch)}'
+        return s
+    if isinstance(node, (ForEach, ForLoop)):
+        return f'遍历 {node.var} 于 {ast_to_source(node.iterable)} ：{ast_to_source(node.body)}'
+    if isinstance(node, While):
+        return f'循环当 {ast_to_source(node.condition)} ：{ast_to_source(node.body)}'
+    if isinstance(node, Block):
+        return '；'.join(ast_to_source(s) for s in node.statements)
+    if isinstance(node, ReturnStmt):
+        return f'返回 {ast_to_source(node.value)}'
+    if isinstance(node, ListExpr):
+        elems = ' '.join(ast_to_source(e) for e in node.elements)
+        return f'列表 {elems}'
+    if isinstance(node, Quote):
+        return f'引用（{ast_to_source(node.expr)}）'
+    if isinstance(node, Quasiquote):
+        return f'模板（{ast_to_source(node.expr)}）'
+    if isinstance(node, Unquote):
+        return f'嵌入（{ast_to_source(node.expr)}）'
+    if isinstance(node, UnquoteSplicing):
+        return f'展开嵌入（{ast_to_source(node.expr)}）'
+    if isinstance(node, MacroDef):
+        params = ' '.join(node.params)
+        return f'宏 {node.name} {params} ：{ast_to_source(node.body)}'
+    if isinstance(node, Program):
+        return '\n'.join(ast_to_source(s) for s in node.statements)
+    return f'<{type(node).__name__}>'
 
 
 # 测试代码

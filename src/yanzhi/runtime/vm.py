@@ -149,6 +149,9 @@ class VM:
             else:
                 if name in self.globals:
                     self.stack.append(self.globals[name])
+                elif name in self.builtins:
+                    # 也允许加载 VM 内置函数（如 打印、映射等）作为函数引用
+                    self.stack.append(self.builtins[name])
                 else:
                     raise YanNameError(f"未定义的变量: {name}")
         elif op == OpCode.STORE_VAR:

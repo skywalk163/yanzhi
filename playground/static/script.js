@@ -1,70 +1,210 @@
-/* === 言知 Playground — 前端逻辑 === */
+/* === 言知 Playground v2 — 前端逻辑 === */
+/* 参考: wenyan-lang IDE, CodeMirror playgrounds */
 
-// === State ===
+// ==================== 言知 CodeMirror 语法模式 ====================
+
+// 关键字
+const KEYWORDS = {
+  '定义': true, '赋值': true, '函数': true, '宏': true,
+  '如果': true, '那么': true, '否则': true,
+  '遍历': true, '循环当': true, '导入': true, '导出': true,
+  '真': true, '假': true, '空': true,
+  '尝试': true, '试': true, '捕获': true, '结束': true, '完毕': true,
+  '就': true, '不然': true, '是': true, '对于': true, '每次': true,
+  '返回': true, '启用': true, '策略': true, '结构': true, '方法': true,
+  '引用': true, '模板': true, '执行': true,
+};
+
+// 动词
+const VERBS = {
+  '相加': true, '相减': true, '相乘': true, '相除': true, '取余': true, '乘方': true, '取负': true, '绝对': true,
+  '大于': true, '小于': true, '等于': true, '不等': true, '大于等于': true, '小于等于': true,
+  '并且': true, '或者': true, '非也': true,
+  '列表': true, '首个': true, '剩余': true, '索引': true, '长度': true, '添加': true, '连接': true, '包含': true, '删除': true,
+  '打印': true, '读取': true, '写入': true,
+  '取': true, '尾': true, '排': true, '反': true, '合': true, '字': true, '整': true, '类': true,
+  '映射': true, '过滤': true, '归约': true, '合并': true,
+  '范围': true, '反转': true, '去重': true, '位置': true, '子串': true, '子列': true,
+  '开方': true, '正弦': true, '余弦': true, '指数': true, '对数': true,
+  '随机': true, '输入': true,
+};
+
+CodeMirror.defineSimpleMode('yanzhi', {
+  start: [
+    { regex: /"(?:[^"\\]|\\.)*"/, token: 'string yanzhi-string' },
+    { regex: /#.*/, token: 'comment yanzhi-comment' },
+    { regex: /--.*/, token: 'comment yanzhi-comment' },
+    { regex: /\b(真|假|空)\b/, token: 'builtin yanzhi-builtin' },
+    { regex: /\b(定义|赋值|函数|宏|如果|那么|否则|遍历|循环当|导入|导出|返回|引用|模板|执行|结束|完毕)\b/, token: 'keyword yanzhi-keyword' },
+    { regex: /\b(启用|策略|结构|方法|尝试|试|捕获|就|不然|是|对于|每次)\b/, token: 'keyword yanzhi-keyword' },
+    { regex: /\b(相加|相减|相乘|相除|取余|乘方|取负|绝对|大于|小于|等于|不等|大于等于|小于等于|并且|或者|非也)\b/, token: 'operator yanzhi-operator' },
+    { regex: /\b(列表|打印|首个|剩余|索引|长度|添加|连接|包含|删除|读取|写入|输入|范围|反转|去重|位置|子串|子列|随机|开方|正弦|余弦|指数|对数|四舍五入|最小|最大|求和|乘积|展平)\b/, token: 'variable-2 yanzhi-verb' },
+    { regex: /\b(映射|过滤|归约|合并)\b/, token: 'variable-3 yanzhi-adverb' },
+    { regex: /\b(取|尾|排|反|合|字|整|类)\b/, token: 'variable-2 yanzhi-verb' },
+    { regex: /\b\d+(\.\d+)?\b/, token: 'number yanzhi-number' },
+    { regex: /[。，：；]+/, token: 'punctuation yanzhi-punctuation' },
+    { regex: /[+\-*/%^=<>!]+/, token: 'operator' },
+    { regex: /[()\[\]{}'【】]/, token: 'bracket' },
+  ],
+  meta: {
+    lineComment: '#',
+  }
+});
+
+// ==================== 状态 ====================
+
 const state = {
   sidebarOpen: false,
   sidebarTab: 'examples',
   currentFile: null,
   running: false,
+  editor: null,
 };
 
-// === DOM refs ===
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => document.querySelectorAll(s);
+// ==================== DOM ====================
 
-const editor = $('#editor');
-const outputBody = $('#output-body');
-const runBtn = $('#run-btn');
-const clearBtn = $('#clear-btn');
-const statusText = $('#status-text');
-const statusDot = $('#status-dot');
-const sidebar = $('#sidebar');
-const sidebarBody = $('#sidebar-body');
-const sidebarTabs = $$('.sidebar-tabs button');
+const outputBody = document.getElementById('output-body');
+const runBtn = document.getElementById('run-btn');
+const statusText = document.getElementById('status-text');
+const statusDot = document.getElementById('status-dot');
+const timingDisplay = document.getElementById('timing-display');
+const shareLink = document.getElementById('share-link');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+const sidebarBody = document.getElementById('sidebar-body');
+const sidebarTabs = document.querySelectorAll('.sidebar-tabs button');
 
-// === API ===
-async function api(method, path, body) {
+// ==================== 初始化 CodeMirror ====================
+
+const textarea = document.getElementById('editor');
+state.editor = CodeMirror.fromTextArea(textarea, {
+  mode: 'yanzhi',
+  theme: 'eclipse',
+  lineNumbers: true,
+  indentUnit: 2,
+  tabSize: 2,
+  lineWrapping: false,
+  styleActiveLine: true,
+  autoCloseBrackets: true,
+  extraKeys: {
+    'Tab': (cm) => cm.replaceSelection('  '),
+    'Ctrl-Enter': () => runCode(),
+    'Cmd-Enter': () => runCode(),
+    'Shift-Enter': () => runCode(),
+  },
+});
+
+// 默认填充代码
+const DEFAULT_CODE = [
+  '# 欢迎使用言知 Playground v2！',
+  '# 按 Ctrl+Enter 或点击 ▶ 运行',
+  '',
+  '打印 "你好，言知！"。',
+  '',
+  '# 管道演示',
+  '定义 data = 列表 1 2 3 4 5。',
+  '打印 data，映射 相乘 2，过滤 大于 5，归约 相加 0。',
+  '',
+  '# 条件 + 作用域块',
+  '定义 x = 10。',
+  '如果 x 大于 5 那么：',
+  '  打印 "x 大于 5"。',
+  '否则：',
+  '  打印 "x 不大于 5"。',
+  '结束。',
+  '',
+  '# 函数定义',
+  '定义 平方 = 函数 x 相乘 x x。',
+  '定义 r1 = 平方 5。',
+  '打印 r1  # 平方(5) = 25',
+  '',
+  '# 递归实现阶乘',
+  '定义 fac = 函数 n：',
+  '  如果 n 等于 1 那么 返回 1。',
+  '  定义 t = 相减 n 1。',
+  '  定义 r = fac t。',
+  '  相乘 n r。',
+  '结束。',
+  '定义 r2 = fac 5。',
+  '打印 r2  # 5! = 120',
+].join('\n');
+state.editor.setValue(DEFAULT_CODE);
+
+// ==================== API（自动重试）====================
+
+async function api(method, path, body, retries = 2) {
   const opts = { method, headers: {} };
   if (body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  const res = await fetch(path, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  return res.json();
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(path, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    } catch (e) {
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 500));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
-// === Run Code ===
+// ==================== 运行代码 ====================
+
 async function runCode() {
   if (state.running) return;
-  const code = editor.value.trim();
-  if (!code) return;
+  const code = state.editor.getValue().trim();
+  if (!code) {
+    addOutput('请输入代码后再运行', 'output-error');
+    return;
+  }
 
   state.running = true;
   runBtn.disabled = true;
-  runBtn.textContent = '⏳ 运行中…';
+  runBtn.textContent = '⏳ …';
   setStatus('运行中…', 'busy');
+  timingDisplay.textContent = '';
 
   outputBody.innerHTML = '';
 
   try {
     const data = await api('POST', '/api/run', { code });
-    
+
     if (data.stdout) {
       addOutput(data.stdout, 'output-stdout');
     }
     if (data.result !== null && data.result !== undefined) {
-      addOutput(`=> ${data.result}`, 'output-result');
+      const resultStr = typeof data.result === 'object' ? JSON.stringify(data.result) : String(data.result);
+      addOutput(`=> ${resultStr}`, 'output-result');
     }
     if (data.error) {
-      addOutput(`错误: ${data.error}`, 'output-error');
+      const errDiv = addOutput(`错误: ${data.error}`, 'output-error');
+      // 可点击跳转到错误行
+      const lineMatch = data.error.match(/第(\d+)行/);
+      if (lineMatch) {
+        const line = parseInt(lineMatch[1]) - 1;
+        errDiv.title = '点击跳转到错误行';
+        errDiv.onclick = () => {
+          state.editor.setCursor({ line, ch: 0 });
+          state.editor.focus();
+        };
+      }
       setStatus('有错误', 'error');
     } else {
-      setStatus('执行完成', '');
+      setStatus('执行完成', 'success');
+    }
+
+    // 显示计时和统计
+    if (data.time !== undefined) {
+      timingDisplay.textContent = `⚡ ${data.time}ms  |  ${data.tokens || '?'} tokens  |  ${data.instrs || '?'} instrs`;
     }
   } catch (e) {
     addOutput(`请求失败: ${e.message}`, 'output-error');
-    setStatus('请求失败', 'error');
+    setStatus('网络错误', 'error');
   } finally {
     state.running = false;
     runBtn.disabled = false;
@@ -78,16 +218,19 @@ function addOutput(text, cls) {
   div.textContent = text;
   outputBody.appendChild(div);
   outputBody.scrollTop = outputBody.scrollHeight;
+  return div;
 }
 
 function clearOutput() {
-  outputBody.innerHTML = '<div class="output-placeholder">点击 ▶ 运行 或按 Ctrl+Enter 执行代码</div>';
+  outputBody.innerHTML = '<div class="output-placeholder">▶ 运行或 Ctrl+Enter</div>';
+  timingDisplay.textContent = '';
 }
 
 function clearEditor() {
-  editor.value = '';
+  state.editor.setValue('');
   state.currentFile = null;
   updateFileLabel();
+  clearOutput();
 }
 
 function setStatus(text, type) {
@@ -96,11 +239,49 @@ function setStatus(text, type) {
 }
 
 function updateFileLabel() {
-  const label = $('#file-label');
+  const label = document.getElementById('file-label');
   label.textContent = state.currentFile ? `📄 ${state.currentFile}` : '未命名';
 }
 
-// === Sidebar ===
+// ==================== 分享链接 ====================
+
+function copyShareLink() {
+  const code = state.editor.getValue();
+  const compressed = btoa(encodeURIComponent(code));
+  const url = `${window.location.origin}${window.location.pathname}?code=${compressed}`;
+  navigator.clipboard.writeText(url).then(() => {
+    setStatus('✅ 分享链接已复制', 'success');
+    setTimeout(() => setStatus('就绪', ''), 2000);
+  }).catch(() => {
+    // Fallback
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    setStatus('✅ 链接已复制', 'success');
+  });
+}
+
+// 从 URL 参数加载代码
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get('code');
+  if (encoded) {
+    try {
+      const code = decodeURIComponent(atob(encoded));
+      state.editor.setValue(code);
+      setStatus('已从分享链接加载', 'success');
+      setTimeout(() => setStatus('就绪', ''), 2000);
+    } catch (e) {
+      // ignore invalid share URLs
+    }
+  }
+}
+
+// ==================== 侧边栏 ====================
+
 function toggleSidebar(tab) {
   if (state.sidebarOpen && state.sidebarTab === tab) {
     closeSidebar();
@@ -109,12 +290,15 @@ function toggleSidebar(tab) {
   state.sidebarOpen = true;
   state.sidebarTab = tab;
   sidebar.classList.add('open');
-  
-  // Highlight active tab
+  sidebarOverlay.classList.add('open');
+
   sidebarTabs.forEach(b => {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
-  
+
+  const title = document.getElementById('sidebar-title');
+  title.textContent = tab === 'examples' ? '📂 示例' : '📖 语法参考';
+
   if (tab === 'examples') renderExamples();
   else if (tab === 'docs') renderDocs();
 }
@@ -122,45 +306,56 @@ function toggleSidebar(tab) {
 function closeSidebar() {
   state.sidebarOpen = false;
   sidebar.classList.remove('open');
+  sidebarOverlay.classList.remove('open');
 }
 
-// === Examples ===
+// ==================== 示例 ====================
+
 const EXAMPLE_META = {
-  'demo.yan': { desc: '言知语言特性总览 — 数学、条件、管道、Lambda、递归、言律句式' },
-  'bubblesort.yan': { desc: '冒泡排序 — 使用 如果...那么：... 语句块语法' },
-  'hanoi.yan': { desc: '汉诺塔 — 递归函数 + 那么：分支语句块' },
-  'pipeline_demo.yan': { desc: '函数式管道 — 映射(map) / 过滤(filter) / 归约(reduce) 组合演示' },
-  'quicksort.yan': { desc: '快速排序 — 分治思想 + 函数式列表操作' },
+  'advanced.yan': { desc: '高级特性 — 言律句式、高阶函数、块语法、列表操作' },
+  'algorithms.yan': { desc: '算法集 — 冒泡排序、阶乘、条件链、循环块' },
+  'bubblesort.yan': { desc: '冒泡排序 — 嵌套循环 + 数组交换' },
+  'demo.yan': { desc: '基础语法总览 — 数学、条件、管道、递归、作用域块' },
+  'fibonacci.yan': { desc: '斐波那契数列 — 递归经典范例' },
+  'fizzbuzz.yan': { desc: 'FizzBuzz — 循环 + 条件嵌套 + 取余' },
+  'hanoi.yan': { desc: '汉诺塔 — 递归分治算法' },
+  'math_tools.yan': { desc: '数学工具 — 最大公约数、最小公倍数、互质判断' },
+  'pipeline_demo.yan': { desc: '函数式管道 — 映射/过滤/归约 全链组合' },
+  'primes.yan': { desc: '质数筛法 — 递归判断 + 循环遍历' },
+  'quicksort.yan': { desc: '快速排序 — 分治思想' },
   'turing.yan': { desc: '图灵机模拟器 — 双轨设计，识别 aⁿbⁿ 语言' },
-  'webserver.yan': { desc: 'Web 服务器 — 用 Python http.server 提供 HTTP 服务' },
+  'webserver.yan': { desc: 'Web 服务器 — 通过 {{}} 调用 Python http.server' },
+  'yan_law.yan': { desc: '言律自然语法 — 要是句式、作用域块、循环当句式' },
 };
 
 async function renderExamples() {
-  sidebarBody.innerHTML = '<p style="color:var(--fg2)">加载示例列表中…</p>';
+  sidebarBody.innerHTML = '<p style="color:var(--fg3);padding:12px">加载中…</p>';
   try {
     const data = await api('GET', '/api/examples');
-    const names = data.examples || [];
+    const examples = data.examples || [];
     sidebarBody.innerHTML = '';
-    names.forEach(name => {
+    examples.forEach(ex => {
+      const name = ex.name;
       const meta = EXAMPLE_META[name] || { desc: '言知示例文件' };
       const item = document.createElement('div');
       item.className = 'example-item';
-      item.innerHTML = `<div class="ex-name">${name}</div><div class="ex-desc">${meta.desc}</div>`;
+      item.innerHTML = `<div class="ex-name">📄 ${name}</div><div class="ex-desc">${meta.desc}</div>`;
       item.onclick = () => loadExample(name);
       sidebarBody.appendChild(item);
     });
-    if (names.length === 0) {
-      sidebarBody.innerHTML = '<p style="color:var(--fg2)">暂无示例文件</p>';
+    if (examples.length === 0) {
+      sidebarBody.innerHTML = '<p style="color:var(--fg3);padding:12px">暂无示例文件</p>';
     }
   } catch (e) {
-    sidebarBody.innerHTML = `<p style="color:var(--red)">加载失败: ${e.message}</p>`;
+    console.error('renderExamples error:', e);
+    sidebarBody.innerHTML = `<p style="color:var(--error);padding:12px">加载失败 (${e.message})<br><small>请按 Ctrl+F5 强制刷新，或确认服务器运行: <code>python playground/server.py</code></small></p>`;
   }
 }
 
 async function loadExample(name) {
   try {
     const data = await api('GET', `/api/examples/${encodeURIComponent(name)}`);
-    editor.value = data.content || '';
+    state.editor.setValue(data.content || '');
     state.currentFile = name;
     updateFileLabel();
     closeSidebar();
@@ -171,152 +366,82 @@ async function loadExample(name) {
   }
 }
 
-// === Docs ===
+// ==================== 语法参考 ====================
+
 const DOCS_HTML = `
 <h2>言知语法速查</h2>
 
-<h3>核心哲学：极简关键字，强大扩展</h3>
-<p>言知只有 <strong>6 个关键字</strong>（定义、赋值、函数、宏、如果、那么、否则），其余语法由中文虚词+标点模式构成。新增功能永不增加关键字。</p>
+<p>言知是一门<strong>根植于汉语思维结构的中文编程语言</strong>。只有 <strong>6 个关键字</strong>，其他都是动词或宏。</p>
 
 <h3>基本语法</h3>
-<pre><code>定 x = 5。           # 定义变量（不可变）
-定 lst = 列 1 2 3。  # 列表
-设 lst[0] = 10。     # 赋值（可变）
-打印 "你好，言知！"。    # 打印
-</code></pre>
-
-<h3>数学表达式</h3>
-<p>使用常规数学符号：</p>
-<pre><code>打印 1 + 2 * 3。        # 7
-打印 (1 + 2) * 3。      # 9
-打印 10 / 3。           # 3.333...
-定 n = 2 ** 10。      # 1024
-</code></pre>
+<pre><code>定义 x = 5。                 # 常量
+赋值 x = 10。                # 变量赋值
+打印 "你好，言知！"。          # 输出
+列表 1 2 3 4 5。             # 创建列表</code></pre>
 
 <h3>条件判断</h3>
-<pre><code>若 x > 5 则 "大" 否则 "小"。
-
-# 语句块形式（多个语句）
-若 x > 5 则：
-  打印 "x 大于 5"。
-  打印 "条件成立"。
+<pre><code>如果 x 大于 5 那么 "大" 否则 "小"。
+如果 x 大于 5 那么：
+  打印 "大"。
 否则：
-  打印 "x 不大于 5"。
-。
-</code></pre>
+  打印 "小"。
+结束。</code></pre>
 
 <h3>循环</h3>
-<pre><code>当 条件：
-  打印 "循环中"。
-  ...
+<pre><code>循环当 条件：打印 "循环中"。。         # while
+遍历 i 从 1 到 10 ：
+  打印 i。
+结束。</code></pre>
 
-# 相当于 while true
-当 真：
-  打印 "无限循环"。
-  若 条件 则 跳出。
-。
-</code></pre>
+<h3>函数</h3>
+<pre><code>定义 平方 = 函数 n 相乘 n n。
+打印 平方 5。                    # 25
 
-<h3>函数定义</h3>
-<pre><code>定 平方 = 函 n：n * n。。
-打印 平方 5。            # 25
+# 多语句函数体
+定义 阶乘 = 函数 n：
+  如果 n 等于 1 那么 1 否则 相乘 n 阶乘 n 相减 1。
+结束。
+打印 阶乘 10。                   # 3628800</code></pre>
 
-# 多参数
-定 加 = 函 a b：a + b。。
-打印 加 3 4。            # 7
+<h3>管道（标志性特性）</h3>
+<pre><code>列表 1 2 3 4 5，映射 相乘 2，过滤 大于 5，归约 相加 0。
+#     ───────  ───────  ───────  ───────
+#     映射       过滤     归约     结果: 24</code></pre>
 
-# 递归
-定 阶乘 = 函 n：
-  若 n <= 1 则 1 否则 n * 阶乘(n - 1)。
-。
-</code></pre>
-
-<h3>列表操作</h3>
-<pre><code>定 lst = 列 10 20 30 40 50。
-打印 首 lst。             # 10（第一个元素）
-打印 余 lst。             # [20, 30, 40, 50]（除第一个外）
-打印 长 lst。             # 5（长度）
-打印 lst[0]。             # 10（索引访问）
-打印 lst[1:3]。           # [20, 30]（切片）
-</code></pre>
-
-<h3>函数式管道（言知标志性特性）</h3>
-<pre><code>定 data = 列 1 2 3 4 5 6 7 8 9 10。
-打印 data，皆乘2。        # 映射：[2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-打印 data，只大5。        # 过滤：[6, 7, 8, 9, 10]
-打印 data，归加0。        # 规约求和：55
-打印 data，皆乘2，只大5，归加0。  # 链式组合：120
-
-# 中缀风格等价写法
-打印(皆乘2 data)。
-打印(只大5 data)。
-</code></pre>
-
-<h3>言律句式（自然语法）</h3>
-<pre><code>当 真，就打印 "条件触发"。     # 类似 if true
-
-要是 温度 > 30，就打印 "热" 否则 打印 "冷"。
-
-# 作用域块 — 用场景描述限定范围
-回家的时候：
+<h3>言律自然语法</h3>
+<pre><code>回家的时候：
   打印 "进门了"。
   打印 "开灯了"。
-。
-</code></pre>
 
-<h3>双轨设计 — Python 生态调用</h3>
-<pre><code># $(...) 表达式嵌入
-定 result = $(abs(-5) + 10)。
+循环当 真，就 打印 "循环中"。</code></pre>
 
-# {{...}} 多行 Python 代码块
-{{
-import random
-print("随机数:", random.randint(1, 100))
-}}
-</code></pre>
-
-<h3>动词一览（内置函数）</h3>
+<h3>动词一览</h3>
 <table>
 <tr><th>动词</th><th>功能</th><th>示例</th></tr>
 <tr><td>打印</td><td>输出</td><td>打印 "hello"</td></tr>
-<tr><td>相加 / 相减 / 相乘 / 相除</td><td>算术运算</td><td>相加 5 3 → 8</td></tr>
-<tr><td>列表</td><td>创建列表</td><td>列表 1 2 3</td></tr>
-<tr><td>首个 / 剩余 / 长度</td><td>列表操作</td><td>首个 [1,2,3] → 1</td></tr>
-<tr><td>连接</td><td>拼接列表</td><td>连接 [1] [2,3]</td></tr>
-<tr><td>映射（map）</td><td>映射</td><td>映射相乘2 [1,2,3]</td></tr>
-<tr><td>过滤（filter）</td><td>过滤</td><td>过滤大于5 [3,6,9]</td></tr>
-<tr><td>归约（reduce）</td><td>规约</td><td>归约相加0 [1,2,3] → 6</td></tr>
-<tr><td>合并</td><td>zip 组合</td><td>合并 [a,b] [1,2]</td></tr>
-<tr><td>空值</td><td>判空</td><td>空值 [] → true</td></tr>
-<tr><td>取</td><td>索引</td><td>lst 取 0</td></tr>
-<tr><td>大于 / 小于 / 等于</td><td>比较</td><td>大于 5 3 → true</td></tr>
+<tr><td>相加/相减/相乘/相除</td><td>算术</td><td>相加 5 3 → 8</td></tr>
+<tr><td>大于/小于/等于</td><td>比较</td><td>大于 5 3 → 真</td></tr>
+<tr><td>列表</td><td>创建列表</td><td>列表 1 2 3 → [1,2,3]</td></tr>
+<tr><td>映射</td><td>map</td><td>映射 相乘2 [1,2,3]</td></tr>
+<tr><td>过滤</td><td>filter</td><td>过滤 大于5 [3,6,9]</td></tr>
+<tr><td>归约</td><td>reduce</td><td>归约 相加0 [1,2,3] → 6</td></tr>
+<tr><td>首个</td><td>first</td><td>首个 [1,2,3] → 1</td></tr>
+<tr><td>长度</td><td>length</td><td>长度 [1,2,3] → 3</td></tr>
+<tr><td>包含</td><td>contains</td><td>包含 [1,2] 1 → 真</td></tr>
 </table>
 
-<h3>语句终止符</h3>
-<p><code>。</code>（中文句号）是命令式语句（如 <code>定义</code>、<code>赋值</code>、<code>打印</code>）的终止符。表达式（如数学计算、函数调用）可以不带句号作为返回值。</p>
-<p><code>。。</code>（连续两个句号）终止函数体：<code>函数 n：n * n。。</code></p>
-
-<h3>关键字速记</h3>
+<h3>键盘快捷键</h3>
 <table>
-<tr><th>关键字</th><th>用法</th></tr>
-<tr><td>定义</td><td>定义变量（绑定值）</td></tr>
-<tr><td>赋值</td><td>赋值（修改变量）</td></tr>
-<tr><td>函数</td><td>定义函数</td></tr>
-<tr><td>宏</td><td>定义宏（编译期展开）</td></tr>
-<tr><td>如果</td><td>条件判断开始</td></tr>
-<tr><td>那么</td><td>条件真值分支</td></tr>
-<tr><td>否则</td><td>条件假值分支</td></tr>
+<tr><th>按键</th><th>功能</th></tr>
+<tr><td>Ctrl+Enter</td><td>运行代码</td></tr>
+<tr><td>Tab</td><td>插入 2 空格</td></tr>
 </table>
-
-<h3>如何退出 REPL</h3>
-<p>在 REPL 中输入 <code>退出</code>、<code>quit</code> 或 <code>exit</code>。</p>
 
 <h3>常见错误</h3>
 <ul>
-<li><strong>忘记句号</strong>：每条命令式语句必须以 <code>。</code> 结尾</li>
-<li><strong>函数体忘记双句号</strong>：<code>函数 ...：...。。</code> 一定是双句号</li>
-<li><strong>关键字全中文</strong>：使用 <code>如果</code> 而非 <code>if</code>，<code>那么</code> 而非 <code>then</code></li>
-<li><strong>调用函数用空格</strong>：<code>平方 5</code> 而非 <code>平方(5)</code>（括号也可以但风格不同）</li>
+<li><strong>忘记句号</strong>：每个语句以 <code>。</code> 结尾</li>
+<li><strong>函数体</strong>：单表达式用空格，多语句用 <code>：</code> 块 + <code>结束</code></li>
+<li><strong>关键字</strong>：使用 <code>如果</code> 而非 <code>if</code>，<code>那么</code> 而非 <code>then</code></li>
 </ul>
 `;
 
@@ -324,38 +449,36 @@ function renderDocs() {
   sidebarBody.innerHTML = '<div class="docs-content">' + DOCS_HTML + '</div>';
 }
 
-// === Keyboard Shortcuts ===
-editor.addEventListener('keydown', (e) => {
-  // Tab → 2 spaces
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
-    editor.selectionStart = editor.selectionEnd = start + 2;
-  }
-  // Ctrl+Enter → Run
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    runCode();
+// ==================== 键盘快捷键 ====================
+
+document.addEventListener('keydown', (e) => {
+  // Escape → close sidebar
+  if (e.key === 'Escape' && state.sidebarOpen) {
+    closeSidebar();
   }
 });
 
-// === Init ===
+// ==================== 初始化 ====================
+
 document.addEventListener('DOMContentLoaded', () => {
-  // Default placeholder
-  editor.value = '# 欢迎使用言知 Playground！\n# 试试运行这段代码：\n\n打印 "你好，言知！"。\n\n定 data = 列 1 2 3 4 5。\n打印 data，皆乘2，归加0。\n\n# 按 Ctrl+Enter 或点击 ▶ 运行';
-  
   clearOutput();
   setStatus('就绪', '');
   updateFileLabel();
+  loadFromURL();
 
-  // Code area auto-grows via CSS flex:1 already
+  // 窗口大小改变时刷新编辑器
+  window.addEventListener('resize', () => {
+    state.editor.refresh();
+  });
+
+  // 延迟刷新（确保布局稳定）
+  setTimeout(() => state.editor.refresh(), 100);
 });
 
-// === Expose to HTML ===
+// ==================== 暴露到全局 ====================
 window.runCode = runCode;
 window.clearEditor = clearEditor;
 window.clearOutput = clearOutput;
 window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
+window.copyShareLink = copyShareLink;

@@ -216,16 +216,29 @@ class Compiler:
         self.chunk.emit(OpCode.BUILTIN, name, argc)
 
     def _compile_pipe_arg(self, node):
-        """编译管道参数：算术动词作为函数引用，不进行算术优化"""
+        """编译管道参数：作为函数引用编译，不立即求值"""
+        # 管道参数应该是高阶函数（映射/过滤/归约）的函数参数
+        # 例如：列表1 2 3，映射 打印 → 打印是函数引用，不应立即调用
+        # 例如：列表1 2 3，映射 相乘 2 → 相乘2是部分应用，返回Curry
         if isinstance(node, Call):
             verb = node.verb
             verb_name = verb.name if hasattr(verb, 'name') else None
             # 检查是否是算术动词（在 VERB_TO_OPCODE 中）
             if verb_name and verb_name in VERB_TO_OPCODE:
-                # 编译为 BUILTIN 调用（保留柯里化语义）
+                # 编译为 BUILTIN 调用（保留柯里化语义，作为函数引用）
                 for arg in node.args:
                     self._compile(arg)
                 self._emit_builtin(verb_name, len(node.args))
+                return
+            # 非算术动词的函数引用 (如 打印、自定义函数)
+            # 编译为变量加载（加载函数对象本身）
+            if verb_name:
+                self.chunk.emit(OpCode.LOAD_VAR, verb_name)
+                # 如果有参数，也依次编译（作为部分应用的参数）
+                for arg in node.args:
+                    self._compile(arg)
+                # 如果有参数，需要调用函数并保留返回值
+                # 但这里我们只加载函数引用，让高阶函数去处理
                 return
         # 其他类型正常编译
         self._compile(node)

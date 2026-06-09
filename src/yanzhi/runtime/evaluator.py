@@ -83,6 +83,13 @@ class Evaluator:
             return self.eval_python_code(node, env)
         elif isinstance(node, Quote):
             return self.eval_quote(node, env)
+        elif isinstance(node, Quasiquote):
+            return self.eval_quasiquote(node, env)
+        elif isinstance(node, Unquote):
+            # Unquote 只能出现在 Quasiquote 内部，单独出现时求值其内容
+            return self.eval(node.expr, env)
+        elif isinstance(node, UnquoteSplicing):
+            raise RuntimeError("展开嵌入 只能出现在 模板(...) 内部")
         elif isinstance(node, Try):
             return self.eval_try(node, env)
         elif isinstance(node, Throw):
@@ -175,15 +182,20 @@ class Evaluator:
                 raise Exception(args[0])
             raise Exception("抛出异常")
 
-        # 特殊处理：求值引用（同像性）
-        if verb == '行':
-            # 求值参数（应该是AST节点）
+        # 特殊处理：求值引用（同像性）—— '行' 为旧接口，'执行' 为新接口
+        if verb in ('行', '执行'):
             args = [self.eval(arg, env) for arg in node.args]
-            if args:
-                ast_node = args[0]
-                # 对AST节点求值
+            if not args:
+                return None
+            ast_node = args[0]
+            if isinstance(ast_node, ASTNode):
+                # 对 AST 节点求值（代码即数据的核心）
                 return self.eval(ast_node, env)
-            return None
+            # 如果传入的是字符串，先解析再求值（方便 REPL 使用）
+            if isinstance(ast_node, str):
+                from ..compiler.parser import parse
+                return self.eval(parse(ast_node), env)
+            return ast_node
         
         # 查找函数
         mangled_verb = self.mangle_name(verb)
@@ -440,10 +452,89 @@ class Evaluator:
         return py_env.get('_result', None)
     
     def eval_quote(self, node: Quote, env: Dict) -> Any:
-        """求值引用"""
-        # 返回AST节点本身（同像性：代码即数据）
+        """求值引用——返回 AST 节点本身（代码即数据）"""
         return node.expr
-    
+
+    def eval_quasiquote(self, node: Quasiquote, env: Dict) -> Any:
+        """求值反引用模板——递归处理 Unquote / UnquoteSplicing 插值"""
+        return self._expand_quasiquote(node.expr, env)
+
+    def _expand_quasiquote(self, node: ASTNode, env: Dict) -> Any:
+        """递归展开反引用模板中的插值节点"""
+        if isinstance(node, Unquote):
+            # 嵌入：对内部表达式求值，返回其结果（可以是任意值或 AST 节点）
+            return self.eval(node.expr, env)
+
+        if isinstance(node, UnquoteSplicing):
+            # 展开嵌入：在列表上下文中使用，这里单独调用时报错
+            raise RuntimeError("展开嵌入 必须在列表节点内部使用")
+
+        if isinstance(node, Call):
+            # 对 Call 的每个参数递归展开，并处理 UnquoteSplicing 展开
+            new_args = []
+            for arg in node.args:
+                if isinstance(arg, UnquoteSplicing):
+                    spliced = self.eval(arg.expr, env)
+                    if not isinstance(spliced, list):
+                        raise RuntimeError(f"展开嵌入 期望列表，得到 {type(spliced).__name__}")
+                    # 将展开的值包装为 AST 节点
+                    for item in spliced:
+                        new_args.append(self._value_to_ast(item))
+                else:
+                    new_args.append(self._expand_quasiquote(arg, env))
+            new_verb = self._expand_quasiquote(node.verb, env) if isinstance(node.verb, ASTNode) else node.verb
+            return Call(new_verb, new_args)
+
+        if isinstance(node, Block):
+            return Block([self._expand_quasiquote(s, env) for s in node.statements])
+
+        if isinstance(node, If):
+            return If(
+                self._expand_quasiquote(node.condition, env),
+                self._expand_quasiquote(node.then_branch, env),
+                self._expand_quasiquote(node.else_branch, env),
+            )
+
+        if isinstance(node, Define):
+            return Define(node.name, self._expand_quasiquote(node.value, env))
+
+        if isinstance(node, Lambda):
+            return Lambda(node.params, self._expand_quasiquote(node.body, env))
+
+        if isinstance(node, ListExpr):
+            new_elems = []
+            for elem in node.elements:
+                if isinstance(elem, UnquoteSplicing):
+                    spliced = self.eval(elem.expr, env)
+                    if not isinstance(spliced, list):
+                        raise RuntimeError(f"展开嵌入 期望列表")
+                    for item in spliced:
+                        new_elems.append(self._value_to_ast(item))
+                else:
+                    new_elems.append(self._expand_quasiquote(elem, env))
+            return ListExpr(new_elems)
+
+        # 字面量和标识符：原样返回（不插值）
+        return node
+
+    def _value_to_ast(self, value: Any) -> ASTNode:
+        """将运行时值转换为 AST 节点（用于反引用插值）"""
+        if isinstance(value, ASTNode):
+            return value
+        if isinstance(value, bool):
+            return Bool(value)
+        if value is None:
+            return Nil()
+        if isinstance(value, (int, float)):
+            return Num(value)
+        if isinstance(value, str):
+            return Str(value)
+        if isinstance(value, list):
+            return ListExpr([self._value_to_ast(v) for v in value])
+        # 无法转换为 AST，包装为字符串
+        return Str(str(value))
+
+
     def eval_try(self, node: Try, env: Dict) -> Any:
         """求值try-catch-finally"""
         result = None
@@ -506,30 +597,41 @@ class Evaluator:
         raise ReturnValue(value)
 
     def eval_macro_def(self, node: MacroDef, env: Dict) -> Any:
-        """求值宏定义"""
+        """求值宏定义——返回宏闭包（接收未求值的 AST 参数，展开后求值）"""
         params = node.params
         body = node.body
+        macro_name = node.name  # 可能为空（匿名宏）
 
-        # 创建宏闭包
+        # 捕获定义时的环境（词法作用域）
+        captured_env = env
+
         def macro_closure(*args):
-            """宏闭包：接收AST节点，展开后求值"""
-            # 宏展开：将参数AST替换到宏体中
-            # 创建参数名到AST节点的映射
-            param_map = {}
-            for param, arg in zip(params, args):
-                param_map[param] = arg
-
-            # 在宏体中替换参数名为对应的AST节点
+            """宏闭包：接收 AST 节点，替换后在捕获环境中求值"""
+            # 参数数量校验
+            if len(args) != len(params):
+                raise RuntimeError(
+                    f"宏 {macro_name or '匿名'} 期望 {len(params)} 个参数，"
+                    f"得到 {len(args)} 个"
+                )
+            # 构建参数名 → AST 节点映射
+            param_map = dict(zip(params, args))
+            # 替换宏体中的参数占位符
             expanded_body = self.substitute_ast(body, param_map)
-
-            # 对展开后的AST求值
+            # 对展开后的 AST 在调用时的环境求值
             try:
                 return self.eval(expanded_body, env)
             except ReturnValue as ret:
                 return ret.value
 
-        # 存储参数数量
+        # 标记为宏，供 eval_call 识别
+        macro_closure.__name__ = 'macro_closure'
         macro_closure._param_count = len(params)
+        macro_closure._macro_name = macro_name
+
+        # 若有宏名，自动注册到当前环境（支持递归宏）
+        if macro_name:
+            mangled = self.mangle_name(macro_name)
+            env[mangled] = macro_closure
 
         return macro_closure
 
@@ -585,6 +687,24 @@ class Evaluator:
             # 递归替换程序中的参数
             new_stmts = [self.substitute_ast(stmt, param_map) for stmt in node.statements]
             return Program(new_stmts)
+        elif isinstance(node, Quote):
+            # 引用内部不替换（保留引用语义）
+            return node
+        elif isinstance(node, Quasiquote):
+            return Quasiquote(self.substitute_ast(node.expr, param_map))
+        elif isinstance(node, Unquote):
+            return Unquote(self.substitute_ast(node.expr, param_map))
+        elif isinstance(node, UnquoteSplicing):
+            return UnquoteSplicing(self.substitute_ast(node.expr, param_map))
+        elif isinstance(node, ListExpr):
+            return ListExpr([self.substitute_ast(e, param_map) for e in node.elements])
+        elif isinstance(node, While):
+            return While(self.substitute_ast(node.condition, param_map),
+                         self.substitute_ast(node.body, param_map))
+        elif isinstance(node, (ForEach, ForLoop)):
+            return type(node)(node.var,
+                              self.substitute_ast(node.iterable, param_map),
+                              self.substitute_ast(node.body, param_map))
         else:
             # 其他节点类型不替换
             return node

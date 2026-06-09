@@ -721,6 +721,75 @@ BUILTINS.update({
 })
 
 
+# ── 代码即数据（同像性）内置函数 ──────────────────────────────────────────────
+
+def _ast_to_source(node) -> str:
+    """将 AST 节点转换为言知源码字符串（源码化）"""
+    from ..compiler.ast import ast_to_source, ASTNode
+    if not isinstance(node, ASTNode):
+        return str(node)
+    return ast_to_source(node)
+
+
+def _ast_to_string(node) -> str:
+    """将 AST 节点转换为调试字符串（树形结构）"""
+    from ..compiler.ast import ast_to_string, ASTNode
+    if not isinstance(node, ASTNode):
+        return str(node)
+    return ast_to_string(node)
+
+
+def _ast_type(node) -> str:
+    """返回 AST 节点的类型名称"""
+    from ..compiler.ast import ASTNode
+    if not isinstance(node, ASTNode):
+        return type(node).__name__
+    return type(node).__name__
+
+
+def _ast_children(node) -> list:
+    """返回 AST 节点的子节点列表"""
+    from ..compiler.ast import (ASTNode, Call, Block, If, Define, Lambda,
+                                 Pipeline, While, ForEach, ForLoop, ListExpr,
+                                 Program, Quote, Quasiquote)
+    if isinstance(node, Call):
+        return list(node.args)
+    if isinstance(node, Block):
+        return list(node.statements)
+    if isinstance(node, If):
+        return [node.condition, node.then_branch, node.else_branch]
+    if isinstance(node, (Define, Quote, Quasiquote)):
+        return [node.value if isinstance(node, Define) else node.expr]
+    if isinstance(node, Lambda):
+        return [node.body]
+    if isinstance(node, Pipeline):
+        return [node.left, node.right]
+    if isinstance(node, (While,)):
+        return [node.condition, node.body]
+    if isinstance(node, (ForEach, ForLoop)):
+        return [node.iterable, node.body]
+    if isinstance(node, ListExpr):
+        return list(node.elements)
+    if isinstance(node, Program):
+        return list(node.statements)
+    return []
+
+
+def _is_ast(node) -> bool:
+    """判断一个值是否是 AST 节点"""
+    from ..compiler.ast import ASTNode
+    return isinstance(node, ASTNode)
+
+
+BUILTINS.update({
+    '源码': _ast_to_source,       # AST → 源码字符串
+    '语法树': _ast_to_string,     # AST → 调试树字符串
+    '节点类型': _ast_type,         # 获取节点类型名
+    '子节点': _ast_children,       # 获取子节点列表
+    '是语法树': _is_ast,           # 判断是否为 AST 节点
+})
+
+
 # 名称修饰后的内置函数
 MANGLED_BUILTINS = {}
 

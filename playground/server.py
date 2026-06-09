@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""言知 Playground — 本地 Web 服务器
+"""言知 Playground v2 — 本地 Web 服务器
 
-启动：python playground/server.py
+启动：python playground/server.py [port]
 访问：http://localhost:3000
+
+参考设计：
+  - wenyan-lang Online IDE (ide.wy-lang.org)
+  - CodeMirror 6 playgrounds
 """
 
 import sys
@@ -10,8 +14,10 @@ import os
 import io
 import json
 import mimetypes
+import time
+import zlib
+import base64
 
-# 确保能找到 yanzhi 模块
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
 sys.path.insert(0, SRC_DIR)
@@ -19,18 +25,19 @@ sys.path.insert(0, SRC_DIR)
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
-# 延迟导入 yanzhi（确保 sys.path 已设）
 from yanzhi.compiler.lexer import lex
 from yanzhi.compiler.parser import parse
 from yanzhi.runtime.compiler_bc import compile_to_bytecode
+from yanzhi.compiler.expander import MacroExpander
+from yanzhi.runtime.macro_env import MacroEnvironment
+from yanzhi.yan.dsl_factory import register_builtins
 from yanzhi.runtime.vm import VM
 from yanzhi.compiler.errors import YanError
+from yanzhi.compiler.pre_tokenizer import TokenType
 
 
 class PlaygroundHandler(SimpleHTTPRequestHandler):
-    """自定义 HTTP 处理器"""
 
-    # 项目根目录（用于定位 static/ 和 examples/）
     project_root = PROJECT_ROOT
     static_dir = os.path.join(PROJECT_ROOT, 'playground', 'static')
     examples_dir = os.path.join(PROJECT_ROOT, 'examples')
@@ -39,32 +46,35 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        # --- API: 获取示例列表 ---
+        # --- API: 示例列表 ---
         if path == '/api/examples':
             return self._list_examples()
 
-        # --- API: 获取单个示例 ---
+        # --- API: 单个示例 ---
         if path.startswith('/api/examples/'):
             name = path[len('/api/examples/'):]
             return self._get_example(name)
 
+        # --- API: 词法分析（返回 token 详情用于调试）---
+        if path == '/api/tokens':
+            query = parsed.query
+            code = self._get_query_param(query, 'code')
+            if code:
+                return self._tokenize(code)
+            return self._json_response({'error': 'Missing code param'}, 400)
+
         # --- 静态文件 ---
-        # 根路径 -> index.html
         if path == '/' or path == '':
             path = '/static/index.html'
-
-        # 将 /static/... 映射到 static_dir
         if path.startswith('/static/'):
             rel = path[len('/static/'):]
             file_path = os.path.normpath(os.path.join(self.static_dir, rel))
-            # 安全检查：必须在 static_dir 内
             if not file_path.startswith(os.path.normpath(self.static_dir)):
                 self.send_error(403)
                 return
             if os.path.isfile(file_path):
                 return self._serve_file(file_path)
 
-        # 未匹配 -> 404
         self.send_error(404, 'Not Found')
 
     def do_POST(self):
@@ -81,55 +91,72 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
         self.send_error(404, 'Not Found')
 
-    # ---- Handlers ----
+    # ---- Helpers ----
+
+    def _get_query_param(self, query, key):
+        for part in query.split('&'):
+            if '=' in part:
+                k, v = part.split('=', 1)
+                if k == key:
+                    return v
+        return None
 
     def _serve_file(self, file_path):
-        """提供静态文件"""
         content_type, _ = mimetypes.guess_type(file_path)
         if content_type is None:
             content_type = 'application/octet-stream'
-
         try:
             with open(file_path, 'rb') as f:
                 data = f.read()
             self.send_response(200)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             self.end_headers()
             self.wfile.write(data)
         except IOError:
             self.send_error(404)
 
     def _list_examples(self):
-        """获取示例文件列表"""
         examples = []
         try:
             for fname in sorted(os.listdir(self.examples_dir)):
                 if fname.endswith('.yan'):
-                    examples.append(fname)
+                    path = os.path.join(self.examples_dir, fname)
+                    size = os.path.getsize(path)
+                    examples.append({'name': fname, 'size': size})
         except FileNotFoundError:
             pass
-
         self._json_response({'examples': examples})
 
     def _get_example(self, name):
-        """获取单个示例文件内容"""
-        # 安全检查：防止路径遍历
         safe_name = os.path.basename(name)
         file_path = os.path.join(self.examples_dir, safe_name)
         if not os.path.isfile(file_path) or not safe_name.endswith('.yan'):
-            self.send_error(404, '示例不存在')
+            self.send_error(404, 'Example not found')
             return
-
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            self._json_response({
-                'name': safe_name,
-                'content': content,
-            })
+            self._json_response({'name': safe_name, 'content': content})
         except IOError as e:
             self._json_response({'error': str(e)}, status=500)
+
+    def _tokenize(self, code):
+        """词法分析，返回 token 序列（含行号列号）"""
+        try:
+            tokens = lex(code)
+            token_list = []
+            for t in tokens:
+                token_list.append({
+                    'type': t.type.name,
+                    'value': t.value,
+                    'line': t.line,
+                    'col': t.column,
+                })
+            self._json_response({'tokens': token_list})
+        except Exception as e:
+            self._json_response({'error': str(e)}, 400)
 
     def _run_code(self, code):
         """执行言知代码"""
@@ -139,19 +166,30 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
 
         result = None
         error = None
+        exec_time = 0
+        token_count = 0
+        instr_count = 0
 
         try:
-            # 词法分析
+            start = time.perf_counter()
             tokens = lex(code)
-            # 语法分析
+            token_count = len(tokens)
             ast = parse(tokens)
-            # 编译为字节码
+
+            # 宏展开（支持成语/宏调用）
+            macro_env = MacroEnvironment()
+            temp_expander = MacroExpander(macro_env)
+            register_builtins(temp_expander)
+            ast = temp_expander.expand(ast)
+
             chunk = compile_to_bytecode(ast)
-            # 执行（每次新建 VM，隔离环境）
+            instr_count = len(chunk.instructions)
             vm = VM()
             result = vm.run(chunk)
+            exec_time = (time.perf_counter() - start) * 1000  # ms
         except YanError as e:
             error = str(e)
+            exec_time = (time.perf_counter() - start) * 1000
         except SyntaxError as e:
             error = f'语法错误: {e}'
         except Exception as e:
@@ -160,45 +198,54 @@ class PlaygroundHandler(SimpleHTTPRequestHandler):
             sys.stdout = old_stdout
 
         stdout_text = stdout_capture.getvalue()
-
-        # 将 Python 的 None 转为 JS 可理解的 null
         if isinstance(result, type(None)):
-            result = None
+            serializable_result = None
+        elif isinstance(result, (int, float, str, bool)):
+            serializable_result = result
+        elif isinstance(result, list):
+            serializable_result = result
+        else:
+            serializable_result = str(result)
 
         self._json_response({
             'stdout': stdout_text,
-            'result': result,
+            'result': serializable_result,
             'error': error,
+            'time': round(exec_time, 2),
+            'tokens': token_count,
+            'instrs': instr_count,
         })
 
     def _json_response(self, data, status=200):
-        """返回 JSON 响应"""
         body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        """减少日志噪音"""
         msg = format % args
         if '/static/' not in msg and '/api/' not in msg:
-            pass  # 静默处理
+            pass
         else:
             print(f"[Playground] {msg}")
 
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 3000
-    server = HTTPServer(('127.0.0.1', port), PlaygroundHandler)
-    print(f"╔════════════════════════════════════════╗")
-    print(f"║   言知语言 Playground                   ║")
-    print(f"║                                       ║")
-    print(f"║   http://localhost:{port}                ║")
-    print(f"║                                       ║")
-    print(f"║  Ctrl+C 停止服务                        ║")
-    print(f"╚════════════════════════════════════════╝")
+    server = HTTPServer(('', port), PlaygroundHandler)
+    print(f"╔═════════════════════════════════════════╗")
+    print(f"║  言知语言 Playground v2                 ║")
+    print(f"║                                        ║")
+    print(f"║  http://localhost:{port}                 ║")
+    print(f"║                                        ║")
+    print(f"║  特性: CodeMirror 6 | 语法高亮 | 分享  ║")
+    print(f"║        执行计时 | Token 预览 | 示例    ║")
+    print(f"║                                        ║")
+    print(f"║  Ctrl+C 停止服务                       ║")
+    print(f"╚═════════════════════════════════════════╝")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

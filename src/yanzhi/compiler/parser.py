@@ -70,6 +70,13 @@ class Parser:
         '提交JSON': 2,
         # 输入
         '输入': 0,
+        # 代码即数据（同像性）
+        '执行': 1,    # 执行 ast节点
+        '源码': 1,    # 源码 ast节点  → 字符串
+        '语法树': 1,  # 语法树 ast节点 → 调试字符串
+        '节点类型': 1,
+        '子节点': 1,
+        '是语法树': 1,
     }
     
     # 副词（高阶函数）
@@ -99,8 +106,13 @@ class Parser:
         if token.type == TokenType.EOF:
             return None
         
-        # 变量定义
+        # 变量定义（含 定义宏 形式）
         if token.type == TokenType.KEYWORD and token.value == '定义':
+            # 向前看：如果下一个 token 是关键字 宏，则走宏定义路径
+            if (self.pos + 1 < len(self.tokens) and
+                    self.tokens[self.pos + 1].type == TokenType.KEYWORD and
+                    self.tokens[self.pos + 1].value == '宏'):
+                return self.parse_named_macro()
             return self.parse_define()
         
         # 变量赋值
@@ -316,6 +328,10 @@ class Parser:
             # 没有否则分支，返回None
             else_branch = Nil()
 
+        # 消费块分支后可选的结束/完毕
+        if self.match(TokenType.KEYWORD, '结束') or self.match(TokenType.KEYWORD, '完毕'):
+            pass
+
         # 不消费。，让调用者决定
 
         return If(condition, then_branch, else_branch)
@@ -442,6 +458,9 @@ class Parser:
         if self.match(TokenType.COLON):
             # 块体
             body = self.parse_block()
+            # 消费结束关键字
+            if self.match(TokenType.KEYWORD, '结束') or self.match(TokenType.KEYWORD, '完毕'):
+                pass
         else:
             # 单行体
             body = self.parse_expression()
@@ -449,10 +468,10 @@ class Parser:
         return Lambda(params, body)
 
     def parse_macro(self) -> MacroDef:
-        """解析宏定义：宏params：body。"""
+        """解析匿名宏定义：宏 参数1 参数2 ：body（用于宏作为值赋给变量时）"""
         self.consume(TokenType.KEYWORD, '宏', "期望'宏'")
 
-        # 收集参数名
+        # 收集参数名（直到遇到冒号）
         params = []
         while not self.at_end() and self.peek().type in (TokenType.IDENT, TokenType.VERB):
             params.append(self.advance().value)
@@ -462,9 +481,51 @@ class Parser:
 
         # 解析宏体
         body = self.parse_block()
+        # 消费结束关键字
+        if self.match(TokenType.KEYWORD, '结束') or self.match(TokenType.KEYWORD, '完毕'):
+            pass
 
-        # 注意：不在这里消费。，因为宏定义作为表达式时，外层会消费
         return MacroDef('', params, body)
+
+    def parse_named_macro(self) -> Define:
+        """解析具名宏定义：定义宏 宏名 参数1 参数2 ：body。
+        
+        语法：定义宏 宏名 [参数...] ：单行表达式。
+             或
+             定义宏 宏名 [参数...] ：
+                 多行块
+             结束。
+        
+        等价于：定义 宏名 = 宏 参数1 参数2 ：body
+        会把宏名注册到 VERB_ARITY 中，使解析器后续能正确处理宏调用参数数量。
+        """
+        self.consume(TokenType.KEYWORD, '定义', "期望'定义'")
+        self.consume(TokenType.KEYWORD, '宏', "期望'宏'")
+
+        # 读取宏名
+        if self.peek().type not in (TokenType.IDENT, TokenType.VERB):
+            raise ParseError("期望宏名标识符", self.peek().line, self.peek().column)
+        macro_name = self.advance().value
+
+        # 收集参数名（直到冒号）
+        params = []
+        while not self.at_end() and self.peek().type in (TokenType.IDENT, TokenType.VERB):
+            params.append(self.advance().value)
+
+        # 消费冒号
+        self.consume(TokenType.COLON, None, "期望'：'")
+
+        # 解析宏体：单个表达式（消费尾部 。），而不用 parse_block
+        # 这样后续语句不会被吸入宏体
+        body = self.parse_expression()
+        self.match(TokenType.DOT)  # 消费可选的 。
+
+        # 将宏名注册到 VERB_ARITY，以便后续调用正确解析参数
+        self.VERB_ARITY[macro_name] = len(params)
+
+        macro_node = MacroDef(macro_name, params, body)
+        # 包装为 Define 节点，让 evaluator 将宏闭包绑定到环境
+        return Define(macro_name, macro_node)
     
     def parse_try(self) -> Try:
         """解析try-catch-finally语句：试：...捕获 e：...最终：..."""
@@ -579,15 +640,35 @@ class Parser:
         return Block(statements)
     
     def parse_quote(self) -> Quote:
-        """解析引用"""
-        self.consume(TokenType.QUOTE, None, "期望'''")
+        """解析引用——两种语法：
+        1. 单引号前缀：'表达式
+        2. 关键字括号：引用（表达式）
+        """
+        if self.peek().type == TokenType.QUOTE:
+            self.consume(TokenType.QUOTE, None, "期望'''")
+        else:
+            # 关键字 引用 形式：已由 parse_primary 分发，这里只消费到 expr
+            pass
         expr = self.parse_expression()
-
         # 消费结尾的。
         if self.match(TokenType.DOT):
             pass
-
         return Quote(expr)
+
+    def parse_quasiquote(self) -> 'Quasiquote':
+        """解析反引用模板：模板（表达式）"""
+        expr = self.parse_expression()
+        return Quasiquote(expr)
+
+    def parse_unquote(self) -> 'Unquote':
+        """解析插值：嵌入（表达式）"""
+        expr = self.parse_expression()
+        return Unquote(expr)
+
+    def parse_unquote_splicing(self) -> 'UnquoteSplicing':
+        """解析展开插值：展开嵌入（表达式）"""
+        expr = self.parse_expression()
+        return UnquoteSplicing(expr)
     
     def parse_expression(self) -> ASTNode:
         """解析表达式"""
@@ -758,9 +839,54 @@ class Parser:
             self.advance()
             return PythonCode(token.value)
 
-        # 引用
+        # 引用（单引号前缀）
         if token.type == TokenType.QUOTE:
             return self.parse_quote()
+
+        # 引用关键字形式：引用（expr）
+        if token.type == TokenType.KEYWORD and token.value == '引用':
+            self.advance()  # 消费 引用
+            # 支持括号包裹：引用（expr）或直接 引用 expr
+            if self.peek().type == TokenType.LPAREN:
+                self.advance()  # 消费 (
+                expr = self.parse_expression()
+                self.consume(TokenType.RPAREN, None, "期望')'")
+            else:
+                expr = self.parse_expression()
+            return Quote(expr)
+
+        # 反引用模板：模板（expr）
+        if token.type == TokenType.KEYWORD and token.value == '模板':
+            self.advance()  # 消费 模板
+            if self.peek().type == TokenType.LPAREN:
+                self.advance()
+                expr = self.parse_expression()
+                self.consume(TokenType.RPAREN, None, "期望')'")
+            else:
+                expr = self.parse_expression()
+            return Quasiquote(expr)
+
+        # 插值：嵌入（expr）
+        if token.type == TokenType.KEYWORD and token.value == '嵌入':
+            self.advance()  # 消费 嵌入
+            if self.peek().type == TokenType.LPAREN:
+                self.advance()
+                expr = self.parse_expression()
+                self.consume(TokenType.RPAREN, None, "期望')'")
+            else:
+                expr = self.parse_expression()
+            return Unquote(expr)
+
+        # 展开插值：展开嵌入（expr）
+        if token.type == TokenType.KEYWORD and token.value == '展开嵌入':
+            self.advance()  # 消费 展开嵌入
+            if self.peek().type == TokenType.LPAREN:
+                self.advance()
+                expr = self.parse_expression()
+                self.consume(TokenType.RPAREN, None, "期望')'")
+            else:
+                expr = self.parse_expression()
+            return UnquoteSplicing(expr)
 
         # 括号表达式
         if token.type == TokenType.LPAREN:

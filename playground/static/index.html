@@ -3,56 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>言知 Playground</title>
+<title>言知 Playground v2</title>
+
+<!-- CodeMirror 6 from CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/lib/codemirror.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/theme/eclipse.css">
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/lib/codemirror.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/mode/simple.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/runmode/runmode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/edit/closebrackets.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.18/addon/selection/active-line.js"></script>
+
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
 <!-- === Header === -->
 <div class="header">
-  <div class="logo">言知 <small>Yanzhi Playground</small></div>
+  <div class="logo">言知 <small>Yanzhi Playground v2</small></div>
   <div class="nav">
-    <button onclick="toggleSidebar('examples')" data-nav="examples">📂 示例</button>
-    <button onclick="toggleSidebar('docs')" data-nav="docs">📖 语法参考</button>
+    <button onclick="toggleSidebar('examples')">📂 示例</button>
+    <button onclick="toggleSidebar('docs')">📖 语法参考</button>
   </div>
 </div>
 
 <!-- === Main === -->
 <div class="main">
-  
+
   <!-- Editor Panel -->
   <div class="editor-panel">
     <div class="editor-toolbar">
       <button class="run" id="run-btn" onclick="runCode()">▶ 运行</button>
-      <button onclick="clearEditor(); clearOutput()">✕ 清空</button>
+      <button onclick="clearEditor()">✕ 清空</button>
       <span class="file-label" id="file-label">未命名</span>
     </div>
-    <textarea id="editor" spellcheck="false" placeholder="在此输入言知代码…"></textarea>
+    <div class="editor-wrap" id="editor-wrap">
+      <textarea id="editor"></textarea>
+    </div>
   </div>
 
   <!-- Output Panel -->
-  <div class="output-panel">
+  <div class="output-panel" id="output-panel">
     <div class="output-header">
-      <span>输出</span>
-      <button onclick="clearOutput()">清空输出</button>
+      <span>📤 输出</span>
+      <button onclick="clearOutput()">清空</button>
     </div>
     <div class="output-body" id="output-body">
-      <div class="output-placeholder">点击 ▶ 运行 或按 Ctrl+Enter 执行代码</div>
-    </div>
-  </div>
-
-  <!-- Sidebar -->
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h3 id="sidebar-title">📂 示例</h3>
-      <button class="close-btn" onclick="closeSidebar()">✕</button>
-    </div>
-    <div class="sidebar-tabs">
-      <button class="active" data-tab="examples" onclick="toggleSidebar('examples')">示例</button>
-      <button data-tab="docs" onclick="toggleSidebar('docs')">语法参考</button>
-    </div>
-    <div class="sidebar-body" id="sidebar-body">
-      <p style="color:var(--fg2)">加载中…</p>
+      <div class="output-placeholder">▶ 运行或 Ctrl+Enter</div>
     </div>
   </div>
 
@@ -62,9 +59,28 @@
 <div class="status-bar">
   <div class="status-indicator" id="status-dot"></div>
   <span id="status-text">就绪</span>
-  <span style="margin-left:auto;opacity:.6">Ctrl+Enter 运行</span>
+  <a class="status-share" id="share-link" onclick="copyShareLink()" title="复制分享链接">🔗 分享</a>
+  <span style="margin-left:8px;opacity:.6" id="timing-display"></span>
 </div>
 
-<script src="/static/script.js"></script>
+<!-- === Sidebar Overlay === -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- === Sidebar === -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h3 id="sidebar-title">📂 示例</h3>
+    <button class="close-btn" onclick="closeSidebar()">✕</button>
+  </div>
+  <div class="sidebar-tabs">
+    <button class="active" data-tab="examples" onclick="toggleSidebar('examples')">📂 示例</button>
+    <button data-tab="docs" onclick="toggleSidebar('docs')">📖 语法参考</button>
+  </div>
+  <div class="sidebar-body" id="sidebar-body">
+    <p style="color:var(--fg3);padding:12px">加载中…</p>
+  </div>
+</div>
+
+<script src="/static/script.js?v=3"></script>
 </body>
 </html>

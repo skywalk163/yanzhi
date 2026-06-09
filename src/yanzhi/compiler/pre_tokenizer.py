@@ -94,6 +94,8 @@ class PreTokenizer:
         '注释', '注',
         # DSL 工厂
         '启用', '策略',
+        # 代码即数据（同像性）
+        '引用', '模板', '嵌入', '展开嵌入', '执行',
     }
     
     # 动词集合（运算符）
@@ -148,6 +150,8 @@ class PreTokenizer:
         '开库', '关库', '执行SQL', '查询SQL', '执行参数', '表列表', '提交',
         # 重复
         '重复', '交织',
+        # 同像性（代码即数据）
+        '执行', '源码', '语法树', '节点类型', '子节点', '是语法树',
         # 动词白名单（高层语义 → 内核动词映射）
         *ACTION_VOCAB.keys(),
     }
@@ -244,6 +248,11 @@ class PreTokenizer:
 
         # 6. 内联数学运算符
         if self.peek() in '+-*/%^()[]<>!=':
+            self.scan_math_operator()
+            return
+
+        # 6b. 全角括号（等价于半角括号，方便中文输入法用户）
+        if self.peek() in '（）':
             self.scan_math_operator()
             return
 
@@ -401,6 +410,14 @@ class PreTokenizer:
             self.advance()
             self.add_token(TokenType.LPAREN, '(')
         elif char == ')':
+            self.advance()
+            self.add_token(TokenType.RPAREN, ')')
+        elif char == '（':
+            # 全角左括号，等价于 (
+            self.advance()
+            self.add_token(TokenType.LPAREN, '(')
+        elif char == '）':
+            # 全角右括号，等价于 )
             self.advance()
             self.add_token(TokenType.RPAREN, ')')
         elif char == '[':

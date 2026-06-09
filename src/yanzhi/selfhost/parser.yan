@@ -1,266 +1,116 @@
-# 知行语言语法分析器（用知行语言编写）
-# Phase 2 - 自举实现
+# 言知语言语法分析器（用言知语言编写）
+# 自举实现 — 使用双字关键字语法
 
-# AST节点类型
-定AST_NUM="Num"。
-定AST_STR="Str"。
-定AST_IDENT="Ident"。
-定AST_CALL="Call"。
-定AST_DEFINE="Define"。
-定AST_LAMBDA="Lambda"。
-定AST_IF="If"。
-定AST_PROGRAM="Program"。
+定义 AST_NUM="Num"。
+定义 AST_STR="Str"。
+定义 AST_IDENT="Ident"。
+定义 AST_CALL="Call"。
+定义 AST_DEFINE="Define"。
+定义 AST_LAMBDA="Lambda"。
+定义 AST_IF="If"。
+定义 AST_PROGRAM="Program"。
 
-# AST节点构造函数
-定make_num=函value。
-  列AST_NUM value。
-。
+定义 make_num=函数 value 列表 AST_NUM value。
+定义 make_str=函数 value 列表 AST_STR value。
+定义 make_ident=函数 name 列表 AST_IDENT name。
+定义 make_call=函数 verb args 列表 AST_CALL verb args。
+定义 make_define=函数 name value 列表 AST_DEFINE name value。
+定义 make_lambda=函数 params body 列表 AST_LAMBDA params body。
+定义 make_if=函数 c t e 列表 AST_IF c t e。
+定义 make_program=函数 ss 列表 AST_PROGRAM ss。
 
-定make_str=函value。
-  列AST_STR value。
-。
+定义 parser_new=函数 ts 列表 ts 0。
+定义 peek_token=函数 p 索引 索引 p 0 索引 p 1。
+定义 move=函数 p 列表 索引 p 0 相加 索引 p 1 1。
 
-定make_ident=函name。
-  列AST_IDENT name。
-。
-
-定make_call=函verb args。
-  列AST_CALL verb args。
-。
-
-定make_define=函name value。
-  列AST_DEFINE name value。
-。
-
-定make_lambda=函params body。
-  列AST_LAMBDA params body。
-。
-
-定make_if=函condition then_branch else_branch。
-  列AST_IF condition then_branch else_branch。
-。
-
-定make_program=函statements。
-  列AST_PROGRAM statements。
-。
-
-# 解析器状态
-# ParserState = [tokens, pos]
-
-定make_parser=函tokens。
-  列tokens 0。
-。
-
-# 获取当前Token
-定peek_token=函parser。
-  定tokens=parser入0。
-  定pos=parser入1。
-  若pos小tokens长则
-    tokens入pos
-  否则
-    列"EOF" "" 0 0
-  。
-。
-
-# 前进
-定advance_parser=函parser。
-  列parser入0 parser入1加1。
-。
-
-# 匹配Token类型
-定match_type=函parser expected_type。
-  定token=peek_token parser。
-  token入0等expected_type。
-。
-
-# 匹配Token值
-定match_value=函parser expected_value。
-  定token=peek_token parser。
-  token入1等expected_value。
-。
-
-# 消费Token
-定consume=函parser expected_type message。
-  定token=peek_token parser。
-  若token入0等expected_type则
-    列token advance_parser parser
-  否则
-    # 错误处理
-    印message。
-    列token parser
-  。
-。
-
-# 解析数字
-定parse_num=函parser。
-  定token=peek_token parser。
-  定new_parser=advance_parser parser。
-  列make_num token入1 new_parser。
-。
-
-# 解析字符串
-定parse_str=函parser。
-  定token=peek_token parser。
-  定new_parser=advance_parser parser。
-  列make_str token入1 new_parser。
-。
-
-# 解析标识符
-定parse_ident=函parser。
-  定token=peek_token parser。
-  定new_parser=advance_parser parser。
-  列make_ident token入1 new_parser。
-。
-
-# 解析动词调用
-定parse_call=函parser。
-  定verb_token=peek_token parser。
-  定verb=verb_token入1。
-  定parser1=advance_parser parser。
-  
-  # 收集参数（简化版：收集一个参数）
-  定args=列。
-  
-  # 检查下一个Token
-  定next_token=peek_token parser1。
-  
-  若next_token入0等"NUM"则
-    定result=parse_num parser1。
-    列make_call verb result入0 result入1。
-  否则若next_token入0等"IDENT"则
-    定result=parse_ident parser1。
-    列make_call verb result入0 result入1。
-  否则
-    列make_call verb args parser1。
-  。
-。
-
-# 解析Lambda
-定parse_lambda=函parser。
-  # 消费'函'
-  定parser1=advance_parser parser。
-  
-  # 解析参数
-  定param_token=peek_token parser1。
-  定params=列param_token入1。
-  定parser2=advance_parser parser1。
-  
-  # 解析函数体
-  定body_result=parse_expression parser2。
-  
-  列make_lambda params body_result入0 body_result入1。
-。
-
-# 解析条件表达式
-定parse_if=函parser。
-  # 消费'若'
-  定parser1=advance_parser parser。
-  
-  # 解析条件
-  定cond_result=parse_expression parser1。
-  
-  # 消费'则'
-  定parser2=advance_parser cond_result入1。
-  
-  # 解析then分支
-  定then_result=parse_expression parser2。
-  
-  # 消费'否则'
-  定parser3=advance_parser then_result入1。
-  
-  # 解析else分支
-  定else_result=parse_expression parser3。
-  
-  列make_if cond_result入0 then_result入0 else_result入0 else_result入1。
-。
-
-# 解析表达式
-定parse_expression=函parser。
-  定token=peek_token parser。
-  
-  若token入0等"NUM"则
-    parse_num parser
-  否则若token入0等"STR"则
-    parse_str parser
-  否则若token入0等"IDENT"则
-    parse_ident parser
-  否则若token入0等"VERB"则
-    parse_call parser
-  否则若match_value parser "函"则
-    parse_lambda parser
-  否则若match_value parser "若"则
-    parse_if parser
-  否则
-    # 返回空
-    列make_num 0 parser
-  。
-。
-
-# 解析定义语句
-定parse_define=函parser。
-  # 消费'定'
-  定parser1=advance_parser parser。
-  
-  # 解析变量名
-  定name_token=peek_token parser1。
-  定name=name_token入1。
-  定parser2=advance_parser parser1。
-  
-  # 消费'='
-  定parser3=advance_parser parser2。
-  
-  # 解析值
-  定value_result=parse_expression parser3。
-  
-  # 消费'。'
-  定parser4=advance_parser value_result入1。
-  
-  列make_define name value_result入0 parser4。
-。
-
-# 解析语句
-定parse_statement=函parser。
-  定token=peek_token parser。
-  
-  若match_value parser "定"则
-    parse_define parser
-  否则若match_value parser "若"则
-    定result=parse_if parser。
-    # 消费'。'
-    列result入0 advance_parser result入1。
-  否则
-    定result=parse_expression parser。
-    # 消费'。'
-    列result入0 advance_parser result入1。
-  。
-。
-
-# 解析程序
-定parse_program=函parser。
-  定statements=列。
-  
-  定parse_loop=函p stmts。
-    定token=peek_token p。
-    
-    若token入0等"EOF"则
-      列stmts p
-    否则
-      定result=parse_statement p。
-      定new_stmts=stmts添result入0。
-      parse_loop result入1 new_stmts。
-    。
-  。
-  
-  定result=parse_loop parser statements。
-  列make_program result入0 result入1。
-。
-
-# 主解析函数
-定parse=函tokens。
-  定parser=make_parser tokens。
-  定result=parse_program parser。
-  result入0。
-。
-
-# 测试
-印"语法分析器已加载"。
+# 基本表达式
+定义 parse_num=函数 p：
+  定义 tok=peek_token p。
+  定义 p1=move p。
+  列表 make_num 索引 tok 1 p1。
+结束。定义 parse_str=函数 p：
+  定义 tok=peek_token p。
+  定义 p1=move p。
+  列表 make_str 索引 tok 1 p1。
+结束。定义 parse_ident=函数 p：
+  定义 tok=peek_token p。
+  定义 p1=move p。
+  列表 make_ident 索引 tok 1 p1。
+结束。# 动词调用
+定义 parse_call=函数 p：
+  定义 tok=peek_token p。
+  定义 verb=索引 tok 1。
+  定义 p1=move p。
+  定义 collect=函数 p2 acc：
+    定义 nt=peek_token p2。
+    定义 tt=索引 nt 0。
+    如果 等于 tt "NUM" 那么 collect 索引 parse_num p2 1 添加 acc 索引 parse_num p2 0
+    否则 如果 等于 tt "STR" 那么 collect 索引 parse_str p2 1 添加 acc 索引 parse_str p2 0
+    否则 如果 等于 tt "IDENT" 那么 collect 索引 parse_ident p2 1 添加 acc 索引 parse_ident p2 0
+    否则 如果 等于 tt "VERB" 那么 collect 索引 parse_call p2 1 添加 acc 索引 parse_call p2 0
+    否则 列表 acc p2。
+  结束。
+  列表 make_call verb 索引 collect p1 列表 0 索引 collect p1 列表 1。
+结束。# Lambda
+定义 parse_lambda=函数 p：
+  定义 p1=move p。
+  定义 collect=函数 p2 acc：
+    定义 nt=peek_token p2。
+    如果 等于 索引 nt 0 "IDENT" 那么 collect move p2 添加 acc 索引 nt 1 否则 列表 acc p2。
+  结束。
+  定义 br=parse_expression 索引 collect p1 列表 1。
+  列表 make_lambda 索引 collect p1 列表 0 索引 br 0 索引 br 1。
+结束。# 条件
+定义 parse_if=函数 p：
+  定义 p1=move p。
+  定义 cr=parse_expression p1。
+  定义 p2=move 索引 cr 1。
+  定义 tr=parse_expression p2。
+  定义 p3=move 索引 tr 1。
+  定义 er=parse_expression p3。
+  列表 make_if 索引 cr 0 索引 tr 0 索引 er 0 索引 er 1。
+结束。# 表达式
+定义 parse_expression=函数 p：
+  定义 tok=peek_token p。
+  定义 tt=索引 tok 0。
+  如果 等于 tt "NUM" 那么 parse_num p
+  否则 如果 等于 tt "STR" 那么 parse_str p
+  否则 如果 等于 tt "IDENT" 那么 parse_ident p
+  否则 如果 等于 tt "VERB" 那么 parse_call p
+  否则 如果 等于 tt "KEYWORD" 那么：
+    定义 kw=索引 tok 1。
+    如果 等于 kw "函数" 那么 parse_lambda p
+    否则 如果 等于 kw "如果" 那么 parse_if p
+    否则 列表 make_ident "" p
+  否则 列表 make_ident "" p。
+结束。# 定义语句
+定义 parse_define=函数 p：
+  定义 p1=move p。
+  定义 nt=peek_token p1。
+  定义 name=索引 nt 1。
+  定义 p2=move p1。
+  定义 p3=move p2。
+  定义 vr=parse_expression p3。
+  定义 p4=move 索引 vr 1。
+  列表 make_define name 索引 vr 0 p4。
+结束。# 语句
+定义 parse_statement=函数 p：
+  定义 tok=peek_token p。
+  定义 tt=索引 tok 0。
+  定义 tv=索引 tok 1。
+  如果 并且 等于 tt "KEYWORD" 等于 tv "定义" 那么 parse_define p
+  否则 如果 并且 等于 tt "KEYWORD" 等于 tv "如果" 那么 列表 索引 parse_if p 0 move 索引 parse_if p 1
+  否则 列表 索引 parse_expression p 0 move 索引 parse_expression p 1。
+结束。# 程序
+定义 parse_program=函数 p：
+  定义 loop=函数 p2 ss：
+    定义 nt=peek_token p2。
+    如果 等于 索引 nt 0 "EOF" 那么 列表 ss p2
+    否则 loop 索引 parse_statement p2 1 添加 ss 索引 parse_statement p2 0。
+  结束。
+  列表 make_program 索引 loop p 列表 0 索引 loop p 列表 1。
+结束。定义 parse=函数 ts：
+  定义 p=parser_new ts。
+  定义 pr=parse_program p。
+  索引 pr 0。
+结束。打印 "语法分析器已加载"。

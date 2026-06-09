@@ -1,54 +1,67 @@
-# 言知 · 图灵机模拟器 （双轨设计）
-# 内核用 Python 实现，言知负责调度和接口
+# 图灵机模拟器 — 识别 aⁿbⁿ 语言
+# 使用 {{}} 双轨设计调用 Python 实现
 
-"言知图灵机模拟器（识别 a^n b^n）"，打印。
-""，打印。
-
-# 用 Python 实现图灵机核心逻辑
 {{
 class TuringMachine:
-    def __init__(self， tape):
-        self.tape = list(tape) + [' '] * 50
+    def __init__(self, tape):
+        self.tape = list(tape)
         self.head = 0
         self.state = 'q0'
-        self.steps = 0
     
     def step(self):
-        symbol = self.tape[self.head]
         if self.state == 'q0':
-            if symbol == 'a': self.tape[self.head] = 'X'; self.head += 1; self.state = 'q1'
-            elif symbol == 'Y': self.head += 1; self.state = 'q3'
-            elif symbol == ' ': self.state = 'accept'
-            else: self.state = 'reject'
+            if self.head < len(self.tape) and self.tape[self.head] == 'a':
+                self.tape[self.head] = 'X'
+                self.head += 1
+                self.state = 'q1'
+                return True
+            elif self.head >= len(self.tape) or self.tape[self.head] in ('B', ''):
+                self.state = 'q_accept'
+                return False
+            else:
+                self.state = 'q_reject'
+                return False
+        
         elif self.state == 'q1':
-            if symbol == 'a': self.head += 1
-            elif symbol == 'Y': self.head += 1
-            elif symbol == 'b': self.tape[self.head] = 'Y'; self.head -= 1; self.state = 'q2'
-            else: self.state = 'reject'
+            if self.head < len(self.tape) and self.tape[self.head] == 'a':
+                self.head += 1
+                return True
+            elif self.head < len(self.tape) and self.tape[self.head] == 'b':
+                self.tape[self.head] = 'Y'
+                self.head -= 1
+                self.state = 'q2'
+                return True
+            else:
+                self.state = 'q_reject'
+                return False
+        
         elif self.state == 'q2':
-            if symbol == 'a': self.head -= 1
-            elif symbol == 'Y': self.head -= 1
-            elif symbol == 'X': self.head += 1; self.state = 'q0'
-            else: self.state = 'reject'
-        elif self.state == 'q3':
-            if symbol == 'Y': self.head += 1
-            elif symbol == 'b': self.head += 1
-            elif symbol == ' ': self.state = 'accept'
-            else: self.state = 'reject'
-        self.steps += 1
-        return self.state not in ('accept'， 'reject')
+            if self.head >= 0 and self.tape[self.head] == 'b':
+                self.head -= 1
+                return True
+            elif self.head >= 0 and self.tape[self.head] == 'Y':
+                self.head -= 1
+                return True
+            elif self.head >= 0 and self.tape[self.head] == 'X':
+                self.head += 1
+                self.state = 'q0'
+                return True
+            else:
+                self.state = 'q_reject'
+                return False
+        
+        return False
     
     def run(self):
-        while self.step(): pass
-        return self.state == 'accept'
+        while self.step():
+            pass
+        return self.state == 'q_accept'
 
-# 测试字符串
-tests = ["ab"， "aabb"， "aaabbb"， "aab"， "abb"]
-for s in tests:
-    tm = TuringMachine(s)
-    result = tm.run()
-    print(f"  '{s}' -> {'接受' if result else '拒绝'}")
+def test(tm_input):
+    tm = TuringMachine(tm_input)
+    return tm.run()
+
+print(test("aabb"))
+print(test("aaabbb"))
+print(test("aab"))
 }}
-
-""，打印。
-"言知图灵机接口可用：使用 {{ TuringMachine(输入) }} 创建实例"，打印。
